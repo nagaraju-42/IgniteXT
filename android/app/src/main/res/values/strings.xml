@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">IgniteXT</string>
+    <string name="title_activity_main">IgniteXT</string>
+    <string name="package_name">com.ignitext.app</string>
+    <string name="custom_url_scheme">com.ignitext.app</string>
+</resources>
