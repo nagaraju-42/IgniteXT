@@ -7,6 +7,11 @@ import { HomeIcon, GridIcon, BookmarkIcon, UserIcon } from "lucide-react";
 export function BottomNav() {
   const pathname = usePathname();
 
+  // Hide on admin routes so it doesn't confusingly redirect to student views
+  if (pathname.startsWith('/admin') || pathname.startsWith('/community')) {
+    return null;
+  }
+
   const getLinkClass = (path: string) => {
     const isActive = pathname === path || (path !== '/' && pathname.startsWith(path));
     return `flex flex-col items-center gap-1 text-[9.5px] font-medium transition-colors ${

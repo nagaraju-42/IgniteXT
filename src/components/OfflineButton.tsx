@@ -6,6 +6,8 @@ import { OfflineManager } from "@/lib/offlineManager";
 import { useRouter } from "next/navigation";
 import { recordDownload } from "@/lib/api";
 
+import { requireStudentAccess } from "@/components/StudentGate";
+
 interface OfflineButtonProps {
   contentId: string;
   fileUrl: string;
@@ -36,11 +38,12 @@ export function OfflineButton({ contentId, fileUrl, title, sizeKb }: OfflineButt
       // Navigate to the built-in PDF viewer
       router.push(`/read?file=${encodeURIComponent(filename)}&title=${encodeURIComponent(title)}`);
     } else if (status === 'not_downloaded') {
-      // Start downloading
-      setStatus('downloading');
-      
-      // Async hit the Supabase API to track a download metric
-      recordDownload(contentId).catch(console.error);
+      requireStudentAccess(async () => {
+        // Start downloading
+        setStatus('downloading');
+        
+        // Async hit the Supabase API to track a download metric
+        recordDownload(contentId).catch(console.error);
       
       // Prepend R2 Public URL if it's just a key
       const downloadUrl = fileUrl.startsWith('http') ? fileUrl : `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/${fileUrl}`;
@@ -53,6 +56,7 @@ export function OfflineButton({ contentId, fileUrl, title, sizeKb }: OfflineButt
         alert("Download failed. Please check your internet connection.");
         setStatus('not_downloaded');
       }
+      });
     }
   }
 

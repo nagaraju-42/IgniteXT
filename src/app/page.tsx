@@ -2,6 +2,7 @@ import Link from "next/link";
 import { DownloadIcon, GridIcon, SearchIcon, AlertCircleIcon } from "lucide-react";
 import { getRegulations, getPopularContent } from "@/lib/api";
 import { OfflineButton } from "@/components/OfflineButton";
+import { ReportButton } from "@/components/ReportButton";
 
 // This is a Server Component, meaning this fetches data securely on the server
 // before rendering the HTML for the mobile wrapper
@@ -11,7 +12,12 @@ export default async function Home() {
 
   return (
     <div className="px-[18px] pt-4 pb-8">
-      <p className="font-bold text-[19px] mb-0.5">Find your notes</p>
+      <div className="flex justify-between items-start mb-0.5">
+        <p className="font-bold text-[19px]">Find your notes</p>
+        <Link href="/support" className="text-[10px] font-bold bg-[var(--paper-deep)] text-[var(--ink-soft)] px-2.5 py-1 rounded-full border border-[var(--rule-strong)] hover:bg-[var(--rule)] transition-colors uppercase tracking-wider">
+          Feedback
+        </Link>
+      </div>
       <p className="text-[11.5px] text-[var(--ink-soft)] mb-3.5">
         Free · no login needed to browse
       </p>
@@ -59,13 +65,39 @@ export default async function Home() {
         {popularContent.length > 0 ? (
           popularContent.map((item) => (
             <div key={item.id} className="border-[1.5px] border-[var(--rule-strong)] rounded-lg p-3 bg-[var(--paper)] flex justify-between items-center gap-2.5">
-              <div>
-                <div className="font-semibold text-[13.5px] leading-tight mb-1">{item.title}</div>
-                <div className="font-mono text-[10.5px] text-[var(--ink-soft)]">
-                  {item.regulation_code} · {item.branch_code} · {item.download_count} downloads
+              <Link href={`/read?url=${encodeURIComponent(item.file_url)}&title=${encodeURIComponent(item.title)}`} className="flex-1 pr-2 block">
+                <div className="font-bold text-[14px] text-[var(--ink)] leading-tight mb-1.5 line-clamp-2 hover:underline">
+                  {item.type === 'note' && item.unit_title ? item.unit_title : item.title}
                 </div>
+                
+                <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                  {item.type === 'note' && item.unit_number && (
+                    <span className="bg-[var(--hl)] text-[var(--ink)] px-1.5 py-0.5 rounded-[4px] text-[9.5px] font-extrabold uppercase tracking-wider">
+                      Unit {item.unit_number}
+                    </span>
+                  )}
+                  {item.type === 'pyq' && item.exam_type && (
+                    <span className="bg-[var(--ink)] text-[var(--paper)] px-1.5 py-0.5 rounded-[4px] text-[9.5px] font-extrabold uppercase tracking-wider">
+                      {item.exam_type} {item.exam_year}
+                    </span>
+                  )}
+                  <span className="bg-[var(--paper-deep)] text-[var(--ink)] px-1.5 py-0.5 rounded-[4px] text-[9.5px] font-extrabold uppercase tracking-wider max-w-full truncate">
+                    {item.subject_name} {item.subject_code && `(${item.subject_code})`}
+                  </span>
+                </div>
+
+                <div className="font-mono text-[10px] text-[var(--ink-soft)] flex items-center gap-1.5">
+                  <span className="font-semibold">{item.regulation_code}</span>
+                  <span>·</span>
+                  <span className="font-semibold">{item.branch_code}</span>
+                  <span>·</span>
+                  <span>{item.download_count} DLs</span>
+                </div>
+              </Link>
+              <div className="flex flex-col gap-1 items-center shrink-0">
+                <OfflineButton contentId={item.id} fileUrl={item.file_url} title={item.title} />
+                <ReportButton contentId={item.id} />
               </div>
-              <OfflineButton contentId={item.id} fileUrl={item.file_url} title={item.title} />
             </div>
           ))
         ) : (

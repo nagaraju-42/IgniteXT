@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { UploadCloudIcon, UsersIcon, FileTextIcon, HelpCircleIcon, Loader2Icon, CheckCircleIcon, XCircleIcon } from "lucide-react";
+import { UploadCloudIcon, UsersIcon, FileTextIcon, HelpCircleIcon, Loader2Icon, CheckCircleIcon, XCircleIcon, SettingsIcon, MegaphoneIcon, TicketIcon } from "lucide-react";
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -12,6 +12,8 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [pendingAdmins, setPendingAdmins] = useState<any[]>([]);
   const [pendingContent, setPendingContent] = useState<any[]>([]);
+  const [studentCount, setStudentCount] = useState(0);
+  const [contentCount, setContentCount] = useState(0);
 
   useEffect(() => {
     async function checkAuthAndLoad() {
@@ -36,18 +38,27 @@ export default function AdminDashboard() {
       const { data: pAdmins } = await supabase
         .from('profiles')
         .select('*')
-        .eq('role', 'community_admin')
         .eq('status', 'pending');
         
-      setPendingAdmins(pAdmins || []);
-
       // Fetch pending content items
       const { data: pContent } = await supabase
         .from('content_items')
         .select('*, profiles(full_name, email)')
         .eq('status', 'draft');
 
+      const { count: sCount } = await supabase
+        .from('students')
+        .select('*', { count: 'exact', head: true });
+
+      const { count: cCount } = await supabase
+        .from('content_items')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'published');
+
+      setPendingAdmins(pAdmins || []);
       setPendingContent(pContent || []);
+      setStudentCount(sCount || 0);
+      setContentCount(cCount || 0);
       setLoading(false);
     }
     checkAuthAndLoad();
@@ -88,13 +99,13 @@ export default function AdminDashboard() {
 
       <div className="grid grid-cols-2 gap-3 mb-6">
         <div className="border-[1.5px] border-[var(--ink)] rounded-xl p-4 bg-[var(--paper-deep)] flex flex-col items-center justify-center">
-          <div className="font-display font-black text-[32px] leading-none mb-1">1,204</div>
+          <div className="font-display font-black text-[32px] leading-none mb-1">{studentCount.toLocaleString()}</div>
           <div className="text-[11px] font-semibold text-[var(--ink-soft)] flex items-center gap-1.5 uppercase">
             <UsersIcon className="w-3.5 h-3.5" /> Students
           </div>
         </div>
         <div className="border-[1.5px] border-[var(--ink)] rounded-xl p-4 bg-[var(--hl)] text-[var(--hl-ink)] flex flex-col items-center justify-center">
-          <div className="font-display font-black text-[32px] leading-none mb-1 text-[var(--ink)]">42</div>
+          <div className="font-display font-black text-[32px] leading-none mb-1 text-[var(--ink)]">{contentCount.toLocaleString()}</div>
           <div className="text-[11px] font-semibold text-[var(--ink)] flex items-center gap-1.5 uppercase">
             <FileTextIcon className="w-3.5 h-3.5" /> PDFs Live
           </div>
@@ -161,8 +172,9 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      <h2 className="font-bold text-[16px] mb-3">Quick Actions</h2>
+      <h2 className="font-bold text-[16px] mb-3">Dashboard Controls</h2>
       <div className="flex flex-col gap-3">
+        
         <Link href="/admin/upload" className="border-[1.5px] border-[var(--ink)] rounded-xl p-4 bg-[var(--paper-card)] hover:bg-[var(--paper-deep)] transition-colors flex items-center gap-4">
           <div className="w-10 h-10 rounded-full bg-[var(--ink)] text-[var(--paper)] flex items-center justify-center shrink-0">
             <UploadCloudIcon className="w-5 h-5" />
@@ -179,18 +191,60 @@ export default function AdminDashboard() {
           </div>
           <div>
             <div className="font-semibold text-[14px]">Manage Subjects</div>
-            <div className="text-[11px] text-[var(--ink-soft)] mt-0.5">Add or edit courses</div>
+            <div className="text-[11px] text-[var(--ink-soft)] mt-0.5">Add or edit courses and units</div>
           </div>
         </Link>
-      </div>
 
-      <div className="mt-8 border-[1.5px] border-dashed border-[var(--rule-strong)] rounded-xl p-4 bg-[var(--paper)]">
-        <p className="font-semibold text-[13px] mb-1">Send Announcement</p>
-        <p className="text-[11px] text-[var(--ink-soft)] mb-3">Push notifications to all students</p>
-        <div className="flex gap-2">
-          <input type="text" placeholder="Message title..." className="flex-1 bg-[var(--paper-card)] border-[1.5px] border-[var(--rule-strong)] rounded px-2.5 py-1.5 text-[12px] outline-none" />
-          <button className="btn btn-p !py-1.5 !px-3 !text-[12px]">Send</button>
-        </div>
+        <Link href="/admin/content" className="border-[1.5px] border-[var(--rule-strong)] rounded-xl p-4 bg-[var(--paper)] hover:bg-[var(--paper-deep)] transition-colors flex items-center gap-4">
+          <div className="w-10 h-10 rounded-full bg-[var(--paper-deep)] text-[var(--ink-soft)] flex items-center justify-center shrink-0">
+            <FileTextIcon className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="font-semibold text-[14px]">Content & Logs</div>
+            <div className="text-[11px] text-[var(--ink-soft)] mt-0.5">Delete PDFs and view activity logs</div>
+          </div>
+        </Link>
+
+        <Link href="/admin/tickets" className="border-[1.5px] border-[var(--rule-strong)] rounded-xl p-4 bg-[var(--paper)] hover:bg-[var(--paper-deep)] transition-colors flex items-center gap-4">
+          <div className="w-10 h-10 rounded-full bg-[var(--paper-deep)] text-[var(--ink-soft)] flex items-center justify-center shrink-0">
+            <TicketIcon className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="font-semibold text-[14px]">Support CRM</div>
+            <div className="text-[11px] text-[var(--ink-soft)] mt-0.5">Manage student tickets and feedback</div>
+          </div>
+        </Link>
+
+        <Link href="/admin/contributors" className="border-[1.5px] border-[var(--rule-strong)] rounded-xl p-4 bg-[var(--paper)] hover:bg-[var(--paper-deep)] transition-colors flex items-center gap-4">
+          <div className="w-10 h-10 rounded-full bg-[var(--paper-deep)] text-[var(--ink-soft)] flex items-center justify-center shrink-0">
+            <UsersIcon className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="font-semibold text-[14px]">Contributors</div>
+            <div className="text-[11px] text-[var(--ink-soft)] mt-0.5">Manage community admins and roles</div>
+          </div>
+        </Link>
+
+        <Link href="/admin/announcements" className="border-[1.5px] border-[var(--rule-strong)] rounded-xl p-4 bg-[var(--paper)] hover:bg-[var(--paper-deep)] transition-colors flex items-center gap-4">
+          <div className="w-10 h-10 rounded-full bg-[var(--paper-deep)] text-[var(--ink-soft)] flex items-center justify-center shrink-0">
+            <MegaphoneIcon className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="font-semibold text-[14px]">Announcements</div>
+            <div className="text-[11px] text-[var(--ink-soft)] mt-0.5">Target push notifications to students</div>
+          </div>
+        </Link>
+
+        <Link href="/admin/settings" className="border-[1.5px] border-[var(--rule-strong)] rounded-xl p-4 bg-[var(--paper)] hover:bg-[var(--paper-deep)] transition-colors flex items-center gap-4">
+          <div className="w-10 h-10 rounded-full bg-[var(--paper-deep)] text-[var(--ink-soft)] flex items-center justify-center shrink-0">
+            <SettingsIcon className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="font-semibold text-[14px]">Platform Settings</div>
+            <div className="text-[11px] text-[var(--ink-soft)] mt-0.5">Monetization, maintenance mode, versions</div>
+          </div>
+        </Link>
+
       </div>
     </div>
   );

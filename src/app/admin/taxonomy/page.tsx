@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { ChevronLeftIcon, PlusIcon, Loader2Icon } from "lucide-react";
+import { ChevronLeftIcon, PlusIcon, Loader2Icon, PencilIcon, Trash2Icon } from "lucide-react";
 
 export default function TaxonomyManagement() {
   const router = useRouter();
@@ -18,6 +18,10 @@ export default function TaxonomyManagement() {
   const [universities, setUniversities] = useState<any[]>([]);
   const [regulations, setRegulations] = useState<any[]>([]);
   const [branches, setBranches] = useState<any[]>([]);
+  const [subjects, setSubjects] = useState<any[]>([]);
+  
+  const [editingSubject, setEditingSubject] = useState<any | null>(null);
+  const [totalUnits, setTotalUnits] = useState<number>(5);
 
   useEffect(() => {
     async function checkAuthAndLoad() {
@@ -28,15 +32,17 @@ export default function TaxonomyManagement() {
       if (!prof || prof.role !== 'superadmin') return router.push('/community');
 
       // Load reference data
-      const [uniRes, regRes, branchRes] = await Promise.all([
+      const [uniRes, regRes, branchRes, subRes] = await Promise.all([
         supabase.from('universities').select('*'),
         supabase.from('regulations').select('*'),
-        supabase.from('branches').select('*')
+        supabase.from('branches').select('*'),
+        supabase.from('subjects').select('*')
       ]);
 
       setUniversities(uniRes.data || []);
       setRegulations(regRes.data || []);
       setBranches(branchRes.data || []);
+      setSubjects(subRes.data || []);
       setLoading(false);
     }
     checkAuthAndLoad();
@@ -78,18 +84,72 @@ export default function TaxonomyManagement() {
     else { showMsg('Branch added!', 'success'); setBranches([...branches, data]); e.currentTarget.reset(); }
   };
 
-  const handleAddSubject = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleDeleteSubject = async (subjectId: string) => {
+    const pin = window.prompt("⚠️ WARNING: This will delete the subject and ALL its content, PDFs, and notes.\n\nEnter Superadmin PIN to confirm:");
+    if (!pin) return;
+    if (btoa(pin) !== 'MjAwNA==') {
+      showMsg('Incorrect PIN. Deletion cancelled.', 'error');
+      return;
+    }
+
+    // Attempt cascading delete from client side
+    await supabase.from('content_requests').delete().eq('subject_id', subjectId);
+    await supabase.from('content_items').delete().eq('subject_id', subjectId);
+    const { error } = await supabase.from('subjects').delete().eq('id', subjectId);
+    
+    if (error) {
+      showMsg(`Failed to delete subject: ${error.message}`, 'error');
+    } else {
+      showMsg('Subject and all related content completely deleted.', 'success');
+      setSubjects(subjects.filter(s => s.id !== subjectId));
+      setEditingSubject(null);
+    }
+  };
+
+  const handleSaveSubject = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const { error } = await supabase.from('subjects').insert({
+    
+    // Convert empty string code to null if optional
+    let codeValue = formData.get('code') as string;
+    const code = codeValue.trim() === '' ? null : codeValue.trim();
+
+    const currentTotalUnits = parseInt(formData.get('total_units') as string, 10) || 5;
+
+    const unitNames: Record<string, string> = {};
+    for (let i = 1; i <= currentTotalUnits; i++) {
+      const uName = formData.get(`unit_name_${i}`) as string;
+      if (uName) unitNames[i.toString()] = uName;
+    }
+
+    const payload = {
       regulation_id: formData.get('regulation_id'),
       branch_id: formData.get('branch_id'),
-      semester: formData.get('semester'),
-      code: formData.get('code'),
+      semester: parseInt(formData.get('semester') as string, 10),
+      total_units: currentTotalUnits,
+      code,
       name: formData.get('name'),
-    });
-    if (error) showMsg(error.message, 'error');
-    else { showMsg('Subject added!', 'success'); e.currentTarget.reset(); }
+      unit_names: unitNames
+    };
+
+    if (editingSubject) {
+      const { data, error } = await supabase.from('subjects').update(payload).eq('id', editingSubject.id).select().single();
+      if (error) showMsg(error.message, 'error');
+      else {
+        showMsg('Subject updated!', 'success');
+        setSubjects(subjects.map(s => s.id === editingSubject.id ? data : s));
+        setEditingSubject(null);
+        e.currentTarget.reset();
+      }
+    } else {
+      const { data, error } = await supabase.from('subjects').insert(payload).select().single();
+      if (error) showMsg(error.message, 'error');
+      else { 
+        showMsg('Subject added!', 'success'); 
+        setSubjects([...subjects, data]);
+        e.currentTarget.reset(); 
+      }
+    }
   };
 
   if (loading) {
@@ -118,7 +178,7 @@ export default function TaxonomyManagement() {
         ].map(tab => (
           <button 
             key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
+            onClick={() => { setActiveTab(tab.id as any); setEditingSubject(null); }}
             className={`px-4 py-3 text-[13px] font-bold whitespace-nowrap transition-colors ${activeTab === tab.id ? 'border-b-2 border-[var(--ink)] text-[var(--ink)] bg-[var(--paper-deep)]' : 'text-[var(--ink-soft)]'}`}
           >
             {tab.label}
@@ -179,50 +239,112 @@ export default function TaxonomyManagement() {
         )}
 
         {activeTab === 'sub' && (
-          <form onSubmit={handleAddSubject} className="flex flex-col gap-4 border-[1.5px] border-[var(--rule-strong)] rounded-xl p-5 bg-[var(--paper-card)]">
-            <h2 className="font-bold text-[16px]">Add Subject</h2>
-            
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[11px] font-semibold text-[var(--ink-soft)] mb-1.5 uppercase">Regulation</label>
-                <select required name="regulation_id" className="w-full bg-[var(--paper)] border-[1.5px] border-[var(--rule-strong)] rounded-lg px-3 py-2 text-[13px] font-medium outline-none appearance-none">
-                  <option value="">Select...</option>
-                  {regulations.map(r => <option key={r.id} value={r.id}>{r.code}</option>)}
-                </select>
+          <div className="flex flex-col gap-6">
+            <form onSubmit={handleSaveSubject} className="flex flex-col gap-4 border-[1.5px] border-[var(--rule-strong)] rounded-xl p-5 bg-[var(--paper-card)]">
+              <h2 className="font-bold text-[16px]">{editingSubject ? 'Edit Subject' : 'Add Subject'}</h2>
+              
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-[var(--ink-soft)] mb-1.5 uppercase">Regulation</label>
+                  <select required name="regulation_id" defaultValue={editingSubject?.regulation_id || ''} className="w-full bg-[var(--paper)] border-[1.5px] border-[var(--rule-strong)] rounded-lg px-3 py-2 text-[13px] font-medium outline-none appearance-none">
+                    <option value="">Select...</option>
+                    {regulations.map(r => <option key={r.id} value={r.id}>{r.code}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-[var(--ink-soft)] mb-1.5 uppercase">Branch</label>
+                  <select required name="branch_id" defaultValue={editingSubject?.branch_id || ''} className="w-full bg-[var(--paper)] border-[1.5px] border-[var(--rule-strong)] rounded-lg px-3 py-2 text-[13px] font-medium outline-none appearance-none">
+                    <option value="">Select...</option>
+                    {branches.map(b => <option key={b.id} value={b.id}>{b.code}</option>)}
+                  </select>
+                </div>
               </div>
-              <div>
-                <label className="block text-[11px] font-semibold text-[var(--ink-soft)] mb-1.5 uppercase">Branch</label>
-                <select required name="branch_id" className="w-full bg-[var(--paper)] border-[1.5px] border-[var(--rule-strong)] rounded-lg px-3 py-2 text-[13px] font-medium outline-none appearance-none">
-                  <option value="">Select...</option>
-                  {branches.map(b => <option key={b.id} value={b.id}>{b.code}</option>)}
-                </select>
-              </div>
-            </div>
 
-            <div>
-              <label className="block text-[11px] font-semibold text-[var(--ink-soft)] mb-1.5 uppercase">Semester</label>
-              <select required name="semester" className="w-full bg-[var(--paper)] border-[1.5px] border-[var(--rule-strong)] rounded-lg px-3 py-2 text-[13px] font-medium outline-none appearance-none">
-                <option value="">Select Semester...</option>
-                <option value="1">Semester 1 (1-1)</option>
-                <option value="2">Semester 2 (1-2)</option>
-                <option value="3">Semester 3 (2-1)</option>
-                <option value="4">Semester 4 (2-2)</option>
-                <option value="5">Semester 5 (3-1)</option>
-                <option value="6">Semester 6 (3-2)</option>
-                <option value="7">Semester 7 (4-1)</option>
-                <option value="8">Semester 8 (4-2)</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-[11px] font-semibold text-[var(--ink-soft)] mb-1.5 uppercase">Subject Code</label>
-              <input required name="code" type="text" placeholder="e.g. CS301" className="w-full bg-[var(--paper)] border-[1.5px] border-[var(--rule-strong)] rounded-lg px-3 py-2 text-[13px] font-medium outline-none" />
-            </div>
-            <div>
-              <label className="block text-[11px] font-semibold text-[var(--ink-soft)] mb-1.5 uppercase">Subject Name</label>
-              <input required name="name" type="text" placeholder="e.g. Data Structures" className="w-full bg-[var(--paper)] border-[1.5px] border-[var(--rule-strong)] rounded-lg px-3 py-2 text-[13px] font-medium outline-none" />
-            </div>
-            <button type="submit" className="btn btn-p mt-2"><PlusIcon className="w-4 h-4"/> Add Subject</button>
-          </form>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-[var(--ink-soft)] mb-1.5 uppercase">Semester</label>
+                  <select required name="semester" defaultValue={editingSubject?.semester || ''} className="w-full bg-[var(--paper)] border-[1.5px] border-[var(--rule-strong)] rounded-lg px-3 py-2 text-[13px] font-medium outline-none appearance-none">
+                    <option value="">Select Semester...</option>
+                    <option value="1">Semester 1 (1-1)</option>
+                    <option value="2">Semester 2 (1-2)</option>
+                    <option value="3">Semester 3 (2-1)</option>
+                    <option value="4">Semester 4 (2-2)</option>
+                    <option value="5">Semester 5 (3-1)</option>
+                    <option value="6">Semester 6 (3-2)</option>
+                    <option value="7">Semester 7 (4-1)</option>
+                    <option value="8">Semester 8 (4-2)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-[var(--ink-soft)] mb-1.5 uppercase">Total Units</label>
+                  <input required name="total_units" type="number" min="1" max="10" value={totalUnits} onChange={(e) => setTotalUnits(parseInt(e.target.value) || 1)} className="w-full bg-[var(--paper)] border-[1.5px] border-[var(--rule-strong)] rounded-lg px-3 py-2 text-[13px] font-medium outline-none" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 border-t border-[var(--rule-strong)] pt-4 mt-2">
+                {Array.from({ length: totalUnits }).map((_, i) => (
+                  <div key={i}>
+                    <label className="block text-[11px] font-semibold text-[var(--ink-soft)] mb-1.5 uppercase">Unit {i + 1} Name</label>
+                    <input name={`unit_name_${i + 1}`} type="text" defaultValue={editingSubject?.unit_names?.[(i + 1).toString()] || ''} placeholder="e.g. Intro to Data Structures" className="w-full bg-[var(--paper)] border-[1.5px] border-[var(--rule-strong)] rounded-lg px-3 py-2 text-[13px] font-medium outline-none" />
+                  </div>
+                ))}
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-[var(--ink-soft)] mb-1.5 uppercase">
+                  Subject Code <span className="text-[var(--ink-faint)] lowercase normal-case ml-1">(Optional)</span>
+                </label>
+                <input name="code" type="text" defaultValue={editingSubject?.code || ''} placeholder="e.g. CS301" className="w-full bg-[var(--paper)] border-[1.5px] border-[var(--rule-strong)] rounded-lg px-3 py-2 text-[13px] font-medium outline-none" />
+              </div>
+              
+              <div>
+                <label className="block text-[11px] font-semibold text-[var(--ink-soft)] mb-1.5 uppercase">Subject Name</label>
+                <input required name="name" type="text" defaultValue={editingSubject?.name || ''} placeholder="e.g. Data Structures" className="w-full bg-[var(--paper)] border-[1.5px] border-[var(--rule-strong)] rounded-lg px-3 py-2 text-[13px] font-medium outline-none" />
+              </div>
+              
+              <div className="flex gap-2 mt-2">
+                <button type="submit" className="btn btn-p flex-1">
+                  {editingSubject ? 'Save Changes' : <><PlusIcon className="w-4 h-4"/> Add Subject</>}
+                </button>
+                {editingSubject && (
+                  <button type="button" onClick={() => setEditingSubject(null)} className="btn bg-[var(--paper-deep)] text-[var(--ink)]">
+                    Cancel
+                  </button>
+                )}
+              </div>
+            </form>
+
+            {subjects.length > 0 && (
+              <div className="border-[1.5px] border-[var(--rule-strong)] rounded-xl bg-[var(--paper-card)] overflow-hidden">
+                <div className="p-4 border-b border-[var(--rule-strong)] font-bold text-[14px]">Manage Existing Subjects</div>
+                <div className="divide-y divide-[var(--rule-strong)] max-h-[400px] overflow-y-auto">
+                  {subjects.map(s => (
+                    <div key={s.id} className="p-3 flex justify-between items-center text-[13px] hover:bg-[var(--paper-deep)] transition-colors">
+                      <div>
+                        <div className="font-semibold">{s.name} {s.code && <span className="text-[var(--ink-soft)] font-mono text-[11px]">({s.code})</span>}</div>
+                        <div className="text-[11px] text-[var(--ink-soft)] mt-0.5">Sem {s.semester} · {s.total_units} Units</div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button 
+                          onClick={() => { setEditingSubject(s); setTotalUnits(s.total_units || 5); window.scrollTo({ top: 0, behavior: 'smooth' }); }} 
+                          className="text-[var(--ink)] font-semibold p-2 rounded hover:bg-[var(--hl)] transition-colors"
+                        >
+                          <PencilIcon className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteSubject(s.id)}
+                          className="text-[var(--red)] font-semibold p-2 rounded hover:bg-[var(--red-bg)] transition-colors"
+                          title="Delete Subject"
+                        >
+                          <Trash2Icon className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>

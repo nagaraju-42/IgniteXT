@@ -22,6 +22,13 @@ export default function AdminUpload() {
   const [unitOrYear, setUnitOrYear] = useState('Unit 1');
   const [file, setFile] = useState<File | null>(null);
 
+  const selectedSubject = subjects.find(s => s.id === subjectId);
+  let derivedUnitTitle = '';
+  if (materialType === 'notes' && selectedSubject?.unit_names) {
+    const unitNum = parseInt(unitOrYear.replace('Unit ', '')) || 1;
+    derivedUnitTitle = selectedSubject.unit_names[unitNum.toString()] || '';
+  }
+
   useEffect(() => {
     async function checkAuthAndLoadData() {
       const { data: { user } } = await supabase.auth.getUser();
@@ -43,7 +50,7 @@ export default function AdminUpload() {
       }
 
       // Fetch subjects for dropdown
-      const { data: subs } = await supabase.from('subjects').select('id, name, code, semester');
+      const { data: subs } = await supabase.from('subjects').select('id, name, code, semester, unit_names, total_units');
       setSubjects(subs || []);
 
       setLoading(false);
@@ -96,7 +103,7 @@ export default function AdminUpload() {
         examYear = parseInt(unitOrYear) || new Date().getFullYear();
       }
 
-      const { error: dbError } = await supabase
+      const { data: dbData, error: dbError } = await supabase
         .from('content_items')
         .insert({
           subject_id: subjectId,
@@ -104,13 +111,25 @@ export default function AdminUpload() {
           type: materialType === 'notes' ? 'note' : 'pyq',
           title: title,
           unit_number: unitNumber,
+          unit_title: materialType === 'notes' ? derivedUnitTitle : null,
           exam_year: examYear,
           file_url: key,
           file_size_kb: Math.round(file.size / 1024),
           status: initialStatus
-        });
+        })
+        .select()
+        .single();
 
       if (dbError) throw dbError;
+
+      // Log the upload activity
+      await supabase.from('admin_activity_log').insert({
+        admin_id: userId,
+        action: 'UPLOAD_CONTENT',
+        target_type: 'content_items',
+        target_id: dbData.id,
+        meta: { title: title, subject_id: subjectId }
+      });
 
       setStatus('success');
     } catch (err: any) {
@@ -200,18 +219,24 @@ export default function AdminUpload() {
               {materialType === 'notes' ? 'Unit Number' : 'Year'}
             </label>
             {materialType === 'notes' ? (
-              <select 
-                required 
-                value={unitOrYear}
-                onChange={e => setUnitOrYear(e.target.value)}
-                className="w-full bg-[var(--paper-card)] border-[1.5px] border-[var(--rule-strong)] rounded-lg px-3 py-2.5 text-[13px] font-medium outline-none appearance-none"
-              >
-                <option value="Unit 1">Unit 1</option>
-                <option value="Unit 2">Unit 2</option>
-                <option value="Unit 3">Unit 3</option>
-                <option value="Unit 4">Unit 4</option>
-                <option value="Unit 5">Unit 5</option>
-              </select>
+              <div className="flex flex-col gap-3">
+                <select 
+                  required 
+                  value={unitOrYear}
+                  onChange={e => setUnitOrYear(e.target.value)}
+                  className="w-full bg-[var(--paper-card)] border-[1.5px] border-[var(--rule-strong)] rounded-lg px-3 py-2.5 text-[13px] font-medium outline-none appearance-none"
+                >
+                  {Array.from({ length: selectedSubject?.total_units || 5 }).map((_, i) => (
+                    <option key={i} value={`Unit ${i + 1}`}>Unit {i + 1}</option>
+                  ))}
+                </select>
+                {derivedUnitTitle && (
+                  <div className="bg-[var(--hl)] text-[var(--ink)] p-3 rounded-lg text-[12px] font-medium flex items-center gap-2">
+                    <CheckCircleIcon className="w-4 h-4 shrink-0" /> 
+                    <span>Syllabus Name: <strong>{derivedUnitTitle}</strong></span>
+                  </div>
+                )}
+              </div>
             ) : (
               <input 
                 type="text" 

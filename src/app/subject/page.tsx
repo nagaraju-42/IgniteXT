@@ -6,6 +6,7 @@ import { ChevronLeftIcon, FileTextIcon, HelpCircleIcon, Loader2Icon } from "luci
 import { getContentBySubject } from "@/lib/api";
 import { createClient } from "@/lib/supabase/client";
 import { OfflineButton } from "@/components/OfflineButton";
+import { ReportButton } from "@/components/ReportButton";
 
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
@@ -18,10 +19,10 @@ function SubjectContent() {
   const [notes, setNotes] = useState<any[]>([]);
   const [pyqs, setPyqs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const supabase = createClient();
 
   useEffect(() => {
     async function loadSubject() {
-      const supabase = createClient();
       const { data: subjectData } = await supabase
         .from('subjects')
         .select('*, regulations(code), branches(code)')
@@ -88,25 +89,74 @@ function SubjectContent() {
           <FileTextIcon className="w-4 h-4 text-[var(--ink-soft)]" /> Unit Notes
         </h2>
         
-        {notes.length > 0 ? (
-          <div className="flex flex-col gap-2.5 mb-8">
-            {notes.map(note => (
-              <div key={note.id} className="border-[1.5px] border-[var(--rule-strong)] rounded-lg p-3 bg-[var(--paper)] flex justify-between items-center gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-[13.5px] truncate">Unit {note.unit_number}: {note.unit_title || note.title}</div>
-                  <div className="font-mono text-[10px] text-[var(--ink-soft)] mt-0.5 truncate">
-                    {note.file_size_kb ? `${(note.file_size_kb / 1024).toFixed(1)} MB` : 'PDF'} · By Admin
+        <div className="flex flex-col gap-6 mb-8 mt-4">
+          {Array.from({ length: subject.total_units || 5 }).map((_, i) => {
+            const unitNum = i + 1;
+            const unitName = subject.unit_names?.[unitNum.toString()];
+            const unitNotes = notes.filter(n => n.unit_number === unitNum);
+
+            return (
+              <div key={unitNum} className="flex flex-col gap-2.5">
+                <h3 className="font-bold text-[14px] flex items-center gap-2 mb-0.5">
+                  <span className="bg-[var(--ink)] text-[var(--paper)] px-2 py-0.5 rounded-[4px] text-[10px] font-extrabold uppercase tracking-wider">Unit {unitNum}</span>
+                  <span className="text-[var(--ink)]">{unitName || 'Pending Syllabus'}</span>
+                </h3>
+                
+                {unitNotes.length > 0 ? (
+                  <div className="flex flex-col gap-2.5">
+                    {unitNotes.map(note => (
+                      <div key={note.id} className="border-[1.5px] border-[var(--rule-strong)] rounded-lg p-3 bg-[var(--paper)] flex justify-between items-center gap-3">
+                        <div className="flex-1 min-w-0" onClick={() => window.location.href = `/read?url=${encodeURIComponent(note.file_url)}&title=${encodeURIComponent(note.title)}`} style={{cursor: 'pointer'}}>
+                          <div className="font-semibold text-[13.5px] truncate">{note.title}</div>
+                          <div className="font-mono text-[10px] text-[var(--ink-soft)] mt-0.5 flex gap-2">
+                            <span>{note.file_size_kb ? `${(note.file_size_kb / 1024).toFixed(1)} MB` : 'PDF'}</span>
+                            <span>·</span>
+                            <span>{note.download_count} DLs</span>
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-1 items-center shrink-0">
+                          <OfflineButton contentId={note.id} fileUrl={note.file_url} title={note.title} />
+                          <ReportButton contentId={note.id} />
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                </div>
-                <OfflineButton contentId={note.id} fileUrl={note.file_url} title={note.title} />
+                ) : (
+                  <div className="border-[1.5px] border-dashed border-[var(--rule)] rounded-lg p-3 bg-[var(--paper-deep)]/50 flex justify-between items-center">
+                    <div className="flex flex-col">
+                      <span className="text-[12px] font-medium text-[var(--ink-soft)]">No PDFs uploaded yet</span>
+                      <span className="text-[10px] text-[var(--ink-faint)] font-mono uppercase tracking-wider">Coming Soon</span>
+                    </div>
+                    <button 
+                      onClick={async (e) => {
+                        const btn = e.currentTarget;
+                        btn.disabled = true;
+                        btn.innerText = 'Requesting...';
+                        try {
+                          const { error } = await supabase.rpc('request_content', {
+                            p_subject_id: subject.id,
+                            p_type: 'note',
+                            p_unit_number: unitNum
+                          });
+                          if (error) throw error;
+                          btn.innerText = 'Requested!';
+                        } catch (err: any) {
+                          console.error(err);
+                          alert('Failed to submit request: ' + err.message);
+                          btn.disabled = false;
+                          btn.innerText = 'I Need This';
+                        }
+                      }}
+                      className="bg-[var(--paper)] border-[1.5px] border-[var(--rule-strong)] text-[var(--ink)] px-3 py-1.5 rounded-lg text-[11px] font-bold shadow-sm hover:bg-[var(--paper-deep)] transition-colors active:scale-95 disabled:opacity-50"
+                    >
+                      I Need This
+                    </button>
+                  </div>
+                )}
               </div>
-            ))}
-          </div>
-        ) : (
-           <div className="border-[1.5px] border-dashed border-[var(--rule-strong)] rounded-lg p-4 bg-[var(--paper)] text-center mb-8">
-             <p className="text-[12.5px] font-medium text-[var(--ink-soft)]">No notes available yet</p>
-           </div>
-        )}
+            );
+          })}
+        </div>
 
         {/* PYQs Section */}
         <h2 className="font-bold text-[16px] mb-3 flex items-center gap-2">
@@ -117,19 +167,47 @@ function SubjectContent() {
           <div className="flex flex-col gap-2.5 mb-8">
             {pyqs.map(pyq => (
               <div key={pyq.id} className="border-[1.5px] border-[var(--rule-strong)] rounded-lg p-3 bg-[var(--paper)] flex justify-between items-center gap-3">
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0" onClick={() => window.location.href = `/read?url=${encodeURIComponent(pyq.file_url)}&title=${encodeURIComponent(pyq.title)}`} style={{cursor: 'pointer'}}>
                   <div className="font-semibold text-[13.5px] truncate">{pyq.title}</div>
                   <div className="font-mono text-[10px] text-[var(--ink-soft)] mt-0.5 uppercase">
                     {pyq.exam_type} · {pyq.exam_year}
                   </div>
                 </div>
-                <OfflineButton contentId={pyq.id} fileUrl={pyq.file_url} title={pyq.title} />
+                <div className="flex flex-col gap-1 items-center shrink-0">
+                  <OfflineButton contentId={pyq.id} fileUrl={pyq.file_url} title={pyq.title} />
+                  <ReportButton contentId={pyq.id} />
+                </div>
               </div>
             ))}
           </div>
         ) : (
-           <div className="border-[1.5px] border-dashed border-[var(--rule-strong)] rounded-lg p-4 bg-[var(--paper)] text-center mb-8">
-             <p className="text-[12.5px] font-medium text-[var(--ink-soft)]">No past papers available yet</p>
+           <div className="border-[1.5px] border-dashed border-[var(--rule-strong)] rounded-lg p-4 bg-[var(--paper)] flex justify-between items-center mb-8">
+             <div className="flex flex-col text-left">
+               <span className="text-[12.5px] font-medium text-[var(--ink-soft)]">No past papers available yet</span>
+             </div>
+             <button 
+                onClick={async (e) => {
+                  const btn = e.currentTarget;
+                  btn.disabled = true;
+                  btn.innerText = 'Requesting...';
+                  try {
+                    const { error } = await supabase.rpc('request_content', {
+                      p_subject_id: subject.id,
+                      p_type: 'pyq'
+                    });
+                    if (error) throw error;
+                    btn.innerText = 'Requested!';
+                  } catch (err: any) {
+                    console.error(err);
+                    alert('Failed to submit request: ' + err.message);
+                    btn.disabled = false;
+                    btn.innerText = 'I Need This';
+                  }
+                }}
+                className="bg-[var(--paper-card)] border-[1.5px] border-[var(--rule-strong)] text-[var(--ink)] px-3 py-1.5 rounded-lg text-[11px] font-bold shadow-sm hover:bg-[var(--paper-deep)] transition-colors active:scale-95 disabled:opacity-50"
+              >
+                I Need This
+              </button>
            </div>
         )}
 

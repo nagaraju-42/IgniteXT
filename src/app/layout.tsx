@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { BottomNav } from "@/components/BottomNav";
+import { StudentGateModal } from "@/components/StudentGate";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -45,6 +46,7 @@ export default function RootLayout({
             {/* Screen Content */}
             <div className="flex-1 overflow-y-auto">
               {children}
+              <StudentGateModal />
             </div>
 
             {/* Tab Bar */}
