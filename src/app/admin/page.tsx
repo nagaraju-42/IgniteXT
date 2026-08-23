@@ -43,7 +43,7 @@ export default function AdminDashboard() {
       // Fetch pending content items
       const { data: pContent } = await supabase
         .from('content_items')
-        .select('*, profiles(full_name, email)')
+        .select('*, profiles(full_name, email), subjects(name)')
         .eq('status', 'draft');
 
       const { count: sCount } = await supabase
@@ -147,7 +147,7 @@ export default function AdminDashboard() {
             {pendingContent.map((content) => (
               <div key={content.id} className="border-[1.5px] border-[var(--rule-strong)] rounded-lg p-3 bg-[var(--paper-card)] flex flex-col gap-3">
                 <div>
-                  <div className="font-semibold text-[13px]">{content.title.replace(/^null\s/, '')}</div>
+                  <div className="font-semibold text-[13px]">{content.title.replace(/^null\s/, content.subjects?.name ? content.subjects.name + ' ' : '')}</div>
                   <div className="font-mono text-[10px] text-[var(--ink-soft)] mt-0.5">
                     Uploaded by: {content.profiles?.full_name} ({content.profiles?.email})
                   </div>

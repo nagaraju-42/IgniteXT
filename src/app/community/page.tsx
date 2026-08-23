@@ -57,7 +57,7 @@ export default function CommunityAdminDashboard() {
       // Fetch recent uploads
       const { data: recents } = await supabase
         .from('content_items')
-        .select('*')
+        .select('*, subjects(name)')
         .eq('uploaded_by', user.id)
         .order('created_at', { ascending: false })
         .limit(3);
@@ -136,7 +136,7 @@ export default function CommunityAdminDashboard() {
           recentUploads.map((item) => (
             <div key={item.id} className="border-[1.5px] border-[var(--rule-strong)] rounded-lg p-3 bg-[var(--paper)] flex justify-between items-center gap-3">
               <div className="flex-1 min-w-0">
-                <div className="font-semibold text-[13px] truncate">{item.title.replace(/^null\s/, '')}</div>
+                <div className="font-semibold text-[13px] truncate">{item.title.replace(/^null\s/, item.subjects?.name ? item.subjects.name + ' ' : '')}</div>
                 <div className="font-mono text-[10px] text-[var(--ink-soft)] mt-0.5">
                   {item.file_size_kb ? `${(item.file_size_kb / 1024).toFixed(1)} MB` : 'PDF'} · {item.download_count || 0} Downloads
                 </div>
