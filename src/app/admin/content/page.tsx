@@ -142,7 +142,7 @@ export default function ContentAndLogs() {
                   <div key={item.id} className="border-[1.5px] border-[var(--rule-strong)] rounded-xl p-4 bg-[var(--paper-card)] flex flex-col gap-2">
                     <div className="flex items-start justify-between">
                       <div className="font-bold text-[14px] leading-tight line-clamp-2 pr-4 text-[var(--ink)]">
-                        {item.title}
+                        {item.title.replace(/^null\s/, '')}
                       </div>
                       <button 
                         onClick={() => handleDeleteContent(item)}

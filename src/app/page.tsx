@@ -67,7 +67,15 @@ export default async function Home() {
             <div key={item.id} className="border-[1.5px] border-[var(--rule-strong)] rounded-lg p-3 bg-[var(--paper)] flex justify-between items-center gap-2.5">
               <Link href={`/read?url=${encodeURIComponent(item.file_url)}&title=${encodeURIComponent(item.title)}`} className="flex-1 pr-2 block">
                 <div className="font-bold text-[14px] text-[var(--ink)] leading-tight mb-1.5 line-clamp-2 hover:underline">
-                  {item.type === 'note' && item.unit_title ? item.unit_title : item.title}
+                  {(() => {
+                    if (item.type === 'note') {
+                      if (item.unit_title) return item.unit_title;
+                      if (item.subject_name) return `${item.subject_name} - Unit ${item.unit_number || ''}`.trim();
+                      return `Unit ${item.unit_number || ''}`.trim();
+                    }
+                    // For PYQs or other types, just clean up "null " if it slipped into the DB
+                    return item.title.replace(/^null\s/, item.subject_name ? item.subject_name + ' ' : '');
+                  })()}
                 </div>
                 
                 <div className="flex flex-wrap items-center gap-1.5 mb-2">
