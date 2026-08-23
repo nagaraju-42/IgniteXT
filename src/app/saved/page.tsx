@@ -45,7 +45,7 @@ export default function Saved() {
                   <FileTextIcon className="w-4 h-4" />
                 </div>
                 <div>
-                  <div className="font-semibold text-[13.5px]">{file.title}</div>
+                  <div className="font-semibold text-[13.5px]">{file.title.replace(/^null\s/, '')}</div>
                   <div className="font-mono text-[10.5px] text-[var(--ink-soft)] mt-0.5">
                     Available Offline · {file.sizeKb ? `${(file.sizeKb / 1024).toFixed(1)} MB` : 'Unknown size'}
                   </div>
