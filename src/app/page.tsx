@@ -110,12 +110,17 @@ export default async function Home() {
             </div>
           ))
         ) : (
-          <div className="border-[1.5px] border-dashed border-[var(--rule-strong)] rounded-lg p-4 bg-[var(--paper)] flex flex-col items-center justify-center text-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-[var(--paper-deep)] flex items-center justify-center">
-              <AlertCircleIcon className="w-4 h-4 text-[var(--ink-soft)]" />
+          <div className="border-[1.5px] border-dashed border-[var(--rule-strong)] rounded-lg p-6 bg-[var(--paper)] flex flex-col items-center justify-center text-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-[var(--paper-deep)] flex items-center justify-center">
+              <SearchIcon className="w-5 h-5 text-[var(--ink-soft)]" />
             </div>
-            <p className="text-[12.5px] font-medium text-[var(--ink-soft)]">No content available yet</p>
-            <p className="text-[11px] text-[var(--ink-faint)] max-w-[200px]">Check back later when community admins upload notes.</p>
+            <div>
+              <p className="text-[13.5px] font-bold text-[var(--ink)]">Start your journey</p>
+              <p className="text-[11.5px] text-[var(--ink-soft)] mt-1 max-w-[220px] mx-auto">Explore the subjects to find your notes and previous year questions.</p>
+            </div>
+            <Link href="/browse" className="mt-2 bg-[var(--ink)] text-[var(--paper)] text-[12px] font-bold px-4 py-2 rounded-lg hover:opacity-90 transition-opacity">
+              Explore Subjects
+            </Link>
           </div>
         )}
       </div>
