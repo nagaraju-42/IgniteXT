@@ -46,7 +46,8 @@ export default function PrivacyPolicy() {
         <section>
           <h2 className="font-bold text-[16px] mb-2">5. Contact Us</h2>
           <p>
-            If you have any questions or concerns about this Privacy Policy or our data practices, please contact the developer team through the app or at our official support email.
+            If you have any questions or concerns about this Privacy Policy or our data practices, please contact the developer team at:<br/>
+            <strong>Email:</strong> <a href="mailto:bigguysolution@gmail.com" className="text-[var(--hl-ink)] underline">bigguysolution@gmail.com</a>
           </p>
         </section>
       </div>
