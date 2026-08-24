@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { DownloadIcon, CheckIcon, Loader2Icon, PlayIcon } from "lucide-react";
 import { OfflineManager } from "@/lib/offlineManager";
+import { Capacitor } from "@capacitor/core";
 import { useRouter } from "next/navigation";
 import { recordDownload } from "@/lib/api";
 
@@ -46,23 +47,29 @@ export function OfflineButton({ contentId, fileUrl, title, sizeKb }: OfflineButt
       });
     } else if (status === 'not_downloaded') {
       requireStudentAccess(async () => {
-        // Start downloading
-        setStatus('downloading');
+        // Prepend R2 Public URL if it's just a key
+        const downloadUrl = fileUrl.startsWith('http') ? fileUrl : `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/${fileUrl}`;
         
-        // Async hit the Supabase API to track a download metric
+        // On Web, Capacitor's download implementation hits Cloudflare CORS restrictions.
+        // It's best to just trigger a native browser download/open for web users!
+        if (Capacitor.getPlatform() === 'web') {
+          recordDownload(contentId).catch(console.error);
+          window.open(downloadUrl, '_blank');
+          return; // Don't try to save offline
+        }
+
+        // Native Mobile Flow (Android/iOS)
+        setStatus('downloading');
         recordDownload(contentId).catch(console.error);
-      
-      // Prepend R2 Public URL if it's just a key
-      const downloadUrl = fileUrl.startsWith('http') ? fileUrl : `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/${fileUrl}`;
-      
-      const path = await OfflineManager.downloadFile(downloadUrl, filename);
-      if (path) {
-        OfflineManager.saveMetadata(filename, title, sizeKb);
-        setStatus('downloaded');
-      } else {
-        alert("Download failed. Please check your internet connection.");
-        setStatus('not_downloaded');
-      }
+        
+        const path = await OfflineManager.downloadFile(downloadUrl, filename);
+        if (path) {
+          OfflineManager.saveMetadata(filename, title, sizeKb);
+          setStatus('downloaded');
+        } else {
+          alert("Download failed. Please check your internet connection.");
+          setStatus('not_downloaded');
+        }
       });
     }
   }
