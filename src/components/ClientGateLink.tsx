@@ -13,7 +13,7 @@ export function ClientGateLink({ url, children, className }: ClientGateLinkProps
     requireStudentAccess(() => {
       const fullUrl = url.startsWith('http') 
         ? url 
-        : ${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/;
+        : `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/${url}`;
       window.open(fullUrl, '_blank');
     });
   };
