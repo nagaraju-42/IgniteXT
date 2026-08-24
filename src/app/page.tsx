@@ -104,7 +104,7 @@ export default async function Home() {
                 </div>
               </ClientGateLink>
               <div className="flex flex-col gap-1 items-center shrink-0">
-                <OfflineButton contentId={item.id} fileUrl={item.file_url} title={item.title} />
+                <OfflineButton contentId={item.id} fileUrl={item.file_url} title={`${item.subject_name || 'Subject'} - ${item.title}`} />
                 <ReportButton contentId={item.id} />
               </div>
             </div>

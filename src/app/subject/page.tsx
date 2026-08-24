@@ -122,7 +122,7 @@ function SubjectContent() {
                           </div>
                         </div>
                         <div className="flex flex-col gap-1 items-center shrink-0">
-                          <OfflineButton contentId={note.id} fileUrl={note.file_url} title={note.title} />
+                          <OfflineButton contentId={note.id} fileUrl={note.file_url} title={`${subject?.name || 'Subject'} - ${note.title}`} />
                           <ReportButton contentId={note.id} />
                         </div>
                       </div>
@@ -187,7 +187,7 @@ function SubjectContent() {
                   </div>
                 </div>
                 <div className="flex flex-col gap-1 items-center shrink-0">
-                  <OfflineButton contentId={pyq.id} fileUrl={pyq.file_url} title={pyq.title} />
+                  <OfflineButton contentId={pyq.id} fileUrl={pyq.file_url} title={`${subject?.name || 'Subject'} - ${pyq.title}`} />
                   <ReportButton contentId={pyq.id} />
                 </div>
               </div>
