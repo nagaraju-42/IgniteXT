@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { BottomNav } from "@/components/BottomNav";
 import { StudentGateModal } from "@/components/StudentGate";
+import { LiveCounter } from "@/components/LiveCounter";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -39,8 +40,9 @@ export default function RootLayout({
         <div className="flex justify-center min-h-screen">
           <div className="w-full max-w-[428px] border-x-[3px] border-[var(--ink)] bg-[var(--paper-card)] flex flex-col shadow-[6px_6px_0_var(--paper-deep)] md:my-8 md:rounded-[34px] md:border-y-[3px] md:overflow-hidden relative">
             {/* App Top */}
-            <div className="px-[18px] pb-3 pt-4 flex items-center gap-[10px] border-b border-[var(--rule)] bg-[var(--ink)]">
+            <div className="px-[18px] pb-3 pt-4 flex items-center justify-between border-b border-[var(--rule)] bg-[var(--ink)]">
               <img src="/logo.png" alt="IgniteXT Logo" className="h-[28px] object-contain" />
+              <LiveCounter />
             </div>
 
             {/* Screen Content */}
