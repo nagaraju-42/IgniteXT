@@ -38,10 +38,8 @@ export function OfflineButton({ contentId, fileUrl, title, sizeKb }: OfflineButt
     if (status === 'downloaded') {
       // Open the offline PDF directly
       requireStudentAccess(async () => {
-        const uri = await OfflineManager.getOfflineFileDataUri(filename);
-        if (uri) {
-          window.open(uri, '_blank');
-        } else {
+        const success = await OfflineManager.openNativeFile(filename);
+        if (!success) {
           alert('Could not open offline file.');
         }
       });

@@ -54,6 +54,34 @@ export const OfflineManager = {
   },
 
   /**
+   * Opens the file in the native PDF viewer on Android/iOS, or new tab on web
+   */
+  async openNativeFile(filename: string): Promise<boolean> {
+    try {
+      const { Capacitor } = await import('@capacitor/core');
+      if (Capacitor.getPlatform() === 'web') {
+        const uri = await this.getOfflineFileDataUri(filename);
+        if (uri) {
+           window.open(uri, '_blank');
+           return true;
+        }
+        return false;
+      }
+      
+      const { FileOpener } = await import('@capawesome-team/capacitor-file-opener');
+      const uriResult = await Filesystem.getUri({
+        path: `pdf_cache/${filename}`,
+        directory: Directory.Data
+      });
+      await FileOpener.openFile({ path: uriResult.uri, mimeType: 'application/pdf' });
+      return true;
+    } catch (error) {
+      console.error('Failed to open native file:', error);
+      return false;
+    }
+  },
+
+  /**
    * Reads an offline file and returns it as a Base64 Data URI so it can be viewed in an iframe
    */
   async getOfflineFileDataUri(filename: string): Promise<string | null> {
