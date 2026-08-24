@@ -7,6 +7,7 @@ import { getContentBySubject } from "@/lib/api";
 import { createClient } from "@/lib/supabase/client";
 import { OfflineButton } from "@/components/OfflineButton";
 import { ReportButton } from "@/components/ReportButton";
+import { requireStudentAccess } from "@/components/StudentGate";
 
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
@@ -106,7 +107,12 @@ function SubjectContent() {
                   <div className="flex flex-col gap-2.5">
                     {unitNotes.map(note => (
                       <div key={note.id} className="border-[1.5px] border-[var(--rule-strong)] rounded-lg p-3 bg-[var(--paper)] flex justify-between items-center gap-3">
-                        <div className="flex-1 min-w-0" onClick={() => window.location.href = `/read?url=${encodeURIComponent(note.file_url)}&title=${encodeURIComponent(note.title)}`} style={{cursor: 'pointer'}}>
+                        <div className="flex-1 min-w-0" onClick={() => {
+                          requireStudentAccess(() => {
+                            const fullUrl = note.file_url.startsWith('http') ? note.file_url : `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/${note.file_url}`;
+                            window.open(fullUrl, '_blank');
+                          });
+                        }} style={{cursor: 'pointer'}}>
                           <div className="font-semibold text-[13.5px] truncate">{note.title.replace(/^null\s/, '')}</div>
                           <div className="font-mono text-[10px] text-[var(--ink-soft)] mt-0.5 flex gap-2">
                             <span>{note.file_size_kb ? `${(note.file_size_kb / 1024).toFixed(1)} MB` : 'PDF'}</span>
@@ -167,7 +173,12 @@ function SubjectContent() {
           <div className="flex flex-col gap-2.5 mb-8">
             {pyqs.map(pyq => (
               <div key={pyq.id} className="border-[1.5px] border-[var(--rule-strong)] rounded-lg p-3 bg-[var(--paper)] flex justify-between items-center gap-3">
-                <div className="flex-1 min-w-0" onClick={() => window.location.href = `/read?url=${encodeURIComponent(pyq.file_url)}&title=${encodeURIComponent(pyq.title)}`} style={{cursor: 'pointer'}}>
+                <div className="flex-1 min-w-0" onClick={() => {
+                  requireStudentAccess(() => {
+                    const fullUrl = pyq.file_url.startsWith('http') ? pyq.file_url : `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/${pyq.file_url}`;
+                    window.open(fullUrl, '_blank');
+                  });
+                }} style={{cursor: 'pointer'}}>
                   <div className="font-semibold text-[13.5px] truncate">{pyq.title.replace(/^null\s/, '')}</div>
                   <div className="font-mono text-[10px] text-[var(--ink-soft)] mt-0.5 uppercase">
                     {pyq.exam_type} · {pyq.exam_year}

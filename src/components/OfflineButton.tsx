@@ -35,8 +35,15 @@ export function OfflineButton({ contentId, fileUrl, title, sizeKb }: OfflineButt
     e.stopPropagation();
 
     if (status === 'downloaded') {
-      // Navigate to the built-in PDF viewer
-      router.push(`/read?file=${encodeURIComponent(filename)}&title=${encodeURIComponent(title)}`);
+      // Open the offline PDF directly
+      requireStudentAccess(async () => {
+        const uri = await OfflineManager.getOfflineFileDataUri(filename);
+        if (uri) {
+          window.open(uri, '_blank');
+        } else {
+          alert('Could not open offline file.');
+        }
+      });
     } else if (status === 'not_downloaded') {
       requireStudentAccess(async () => {
         // Start downloading

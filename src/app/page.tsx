@@ -3,6 +3,7 @@ import { DownloadIcon, GridIcon, SearchIcon, AlertCircleIcon } from "lucide-reac
 import { getRegulations, getPopularContent } from "@/lib/api";
 import { OfflineButton } from "@/components/OfflineButton";
 import { ReportButton } from "@/components/ReportButton";
+import { ClientGateLink } from "@/components/ClientGateLink";
 
 // This is a Server Component, meaning this fetches data securely on the server
 // before rendering the HTML for the mobile wrapper
@@ -65,7 +66,7 @@ export default async function Home() {
         {popularContent.length > 0 ? (
           popularContent.map((item) => (
             <div key={item.id} className="border-[1.5px] border-[var(--rule-strong)] rounded-lg p-3 bg-[var(--paper)] flex justify-between items-center gap-2.5">
-              <Link href={`/read?url=${encodeURIComponent(item.file_url)}&title=${encodeURIComponent(item.title)}`} className="flex-1 pr-2 block">
+              <ClientGateLink url={item.file_url} className="flex-1 pr-2 block">
                 <div className="font-bold text-[14px] text-[var(--ink)] leading-tight mb-1.5 line-clamp-2 hover:underline">
                   {(() => {
                     if (item.type === 'note') {
@@ -101,7 +102,7 @@ export default async function Home() {
                   <span>·</span>
                   <span>{item.download_count} DLs</span>
                 </div>
-              </Link>
+              </ClientGateLink>
               <div className="flex flex-col gap-1 items-center shrink-0">
                 <OfflineButton contentId={item.id} fileUrl={item.file_url} title={item.title} />
                 <ReportButton contentId={item.id} />

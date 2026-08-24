@@ -24,8 +24,13 @@ export default function Saved() {
     loadFiles();
   };
 
-  const handleOpen = (filename: string, title: string) => {
-    router.push(`/read?file=${encodeURIComponent(filename)}&title=${encodeURIComponent(title)}`);
+  const handleOpen = async (filename: string, title: string) => {
+    const uri = await OfflineManager.getOfflineFileDataUri(filename);
+    if (uri) {
+      window.open(uri, '_blank');
+    } else {
+      alert('Could not open offline file.');
+    }
   };
 
   return (
