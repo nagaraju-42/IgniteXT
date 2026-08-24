@@ -25,10 +25,8 @@ export default function Saved() {
   };
 
   const handleOpen = async (filename: string, title: string) => {
-    const uri = await OfflineManager.getOfflineFileDataUri(filename);
-    if (uri) {
-      window.open(uri, '_blank');
-    } else {
+    const success = await OfflineManager.openNativeFile(filename);
+    if (!success) {
       alert('Could not open offline file.');
     }
   };
@@ -39,31 +37,39 @@ export default function Saved() {
 
       <div className="flex flex-col gap-3">
         {files.length > 0 ? (
-          files.map((file, i) => (
-            <div 
-              key={i} 
-              onClick={() => handleOpen(file.filename, file.title)}
-              className="border-[1.5px] border-[var(--rule-strong)] rounded-lg p-3 bg-[var(--paper)] flex justify-between items-center gap-2.5 cursor-pointer hover:bg-[var(--paper-deep)] transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded bg-[var(--red-bg)] text-[var(--red)] flex items-center justify-center shrink-0">
-                  <FileTextIcon className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="font-semibold text-[13.5px]">{file.title.replace(/^null\s/, '')}</div>
-                  <div className="font-mono text-[10.5px] text-[var(--ink-soft)] mt-0.5">
-                    Available Offline · {file.sizeKb ? `${(file.sizeKb / 1024).toFixed(1)} MB` : 'Unknown size'}
+          files.map((file, i) => {
+            const cleanTitle = file.title.replace(/^null\s/, '').replace(/^null - /, '');
+            const titleParts = cleanTitle.split(' - ');
+            const displaySubject = titleParts.length > 1 ? titleParts[0] : 'Saved Document';
+            const displayUnit = titleParts.length > 1 ? titleParts.slice(1).join(' - ') : titleParts[0];
+
+            return (
+              <div 
+                key={i} 
+                onClick={() => handleOpen(file.filename, file.title)}
+                className="border-[1.5px] border-[var(--rule-strong)] rounded-lg p-3 bg-[var(--paper)] flex justify-between items-center gap-3 cursor-pointer hover:bg-[var(--paper-deep)] transition-colors"
+              >
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div className="w-10 h-10 rounded bg-[var(--red-bg)] text-[var(--red)] flex items-center justify-center shrink-0">
+                    <FileTextIcon className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-[13.5px] text-[var(--ink)] truncate">{displaySubject}</div>
+                    <div className="font-semibold text-[11.5px] text-[var(--ink-soft)] truncate mt-0.5">{displayUnit}</div>
+                    <div className="font-mono text-[10px] text-[var(--ink-faint)] mt-1">
+                      Offline • {file.sizeKb ? `${(file.sizeKb / 1024).toFixed(1)} MB` : 'Unknown size'}
+                    </div>
                   </div>
                 </div>
+                <button 
+                  onClick={(e) => handleDelete(e, file.filename)}
+                  className="w-[32px] h-[32px] rounded-full flex items-center justify-center shrink-0 text-[var(--ink-soft)] hover:bg-[var(--red-bg)] hover:text-[var(--red)] transition-colors"
+                >
+                  <TrashIcon className="w-4 h-4" />
+                </button>
               </div>
-              <button 
-                onClick={(e) => handleDelete(e, file.filename)}
-                className="w-[30px] h-[30px] rounded-full flex items-center justify-center shrink-0 text-[var(--ink-faint)] hover:bg-[var(--red-bg)] hover:text-[var(--red)] transition-colors"
-              >
-                <TrashIcon className="w-4 h-4" />
-              </button>
-            </div>
-          ))
+            );
+          })
         ) : (
           <div className="border-[1.5px] border-dashed border-[var(--rule-strong)] rounded-lg p-6 bg-[var(--paper)] flex flex-col items-center justify-center text-center gap-2 mt-4">
             <div className="w-10 h-10 rounded-full bg-[var(--paper-deep)] flex items-center justify-center">
