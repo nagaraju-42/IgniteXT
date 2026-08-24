@@ -109,7 +109,8 @@ function SubjectContent() {
                       <div key={note.id} className="border-[1.5px] border-[var(--rule-strong)] rounded-lg p-3 bg-[var(--paper)] flex justify-between items-center gap-3">
                         <div className="flex-1 min-w-0" onClick={() => {
                           requireStudentAccess(() => {
-                            const fullUrl = note.file_url.startsWith('http') ? note.file_url : `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/${note.file_url}`;
+                            let fullUrl = note.file_url.startsWith('http') ? note.file_url : `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/${note.file_url}`;
+                            fullUrl = encodeURI(fullUrl);
                             window.open(fullUrl, '_blank');
                           });
                         }} style={{cursor: 'pointer'}}>
@@ -175,7 +176,8 @@ function SubjectContent() {
               <div key={pyq.id} className="border-[1.5px] border-[var(--rule-strong)] rounded-lg p-3 bg-[var(--paper)] flex justify-between items-center gap-3">
                 <div className="flex-1 min-w-0" onClick={() => {
                   requireStudentAccess(() => {
-                    const fullUrl = pyq.file_url.startsWith('http') ? pyq.file_url : `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/${pyq.file_url}`;
+                    let fullUrl = pyq.file_url.startsWith('http') ? pyq.file_url : `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/${pyq.file_url}`;
+                    fullUrl = encodeURI(fullUrl);
                     window.open(fullUrl, '_blank');
                   });
                 }} style={{cursor: 'pointer'}}>

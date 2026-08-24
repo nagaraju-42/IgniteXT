@@ -47,8 +47,9 @@ export function OfflineButton({ contentId, fileUrl, title, sizeKb }: OfflineButt
       });
     } else if (status === 'not_downloaded') {
       requireStudentAccess(async () => {
-        // Prepend R2 Public URL if it's just a key
-        const downloadUrl = fileUrl.startsWith('http') ? fileUrl : `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/${fileUrl}`;
+        // Prepend R2 Public URL if it's just a key, and ensure spaces are properly encoded
+        let downloadUrl = fileUrl.startsWith('http') ? fileUrl : `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/${fileUrl}`;
+        downloadUrl = encodeURI(downloadUrl);
         
         // On Web, Capacitor's download implementation hits Cloudflare CORS restrictions.
         // It's best to just trigger a native browser download/open for web users!
