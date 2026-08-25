@@ -24,11 +24,11 @@ export default function Saved() {
     }
   };
 
-  const removeFile = async (e: React.MouseEvent, contentId: string) => {
+  const removeFile = async (e: React.MouseEvent, filename: string) => {
     e.stopPropagation(); // prevent opening the file
     if (confirm("Remove this saved file?")) {
       try {
-        await OfflineManager.deleteFile(contentId);
+        await OfflineManager.deleteFile(filename);
         loadFiles(); // reload
       } catch (err) {
         alert("Failed to delete file.");
@@ -67,12 +67,12 @@ export default function Saved() {
               
               return (
                 <div 
-                  key={file.contentId} 
+                  key={file.filename} 
                   className="border-[1.5px] border-[var(--rule-strong)] rounded-lg p-3 bg-[var(--paper)] flex justify-between items-center cursor-pointer hover:bg-[var(--paper-deep)] transition-colors group shadow-sm"
-                  onClick={() => OfflineManager.openNativeFile(file.contentId, file.fileUrl)}
+                  onClick={() => OfflineManager.openNativeFile(file.filename)}
                 >
                   <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <FileTypeIcon filename={file.fileUrl} className="w-10 h-10 rounded flex items-center justify-center shrink-0 shadow-sm" />
+                    <FileTypeIcon filename={file.filename} className="w-10 h-10 rounded flex items-center justify-center shrink-0 shadow-sm" />
                     <div className="flex-1 min-w-0">
                       <div className="font-bold text-[13.5px] text-[var(--ink)] truncate">{displaySubject}</div>
                       <div className="font-semibold text-[11.5px] text-[var(--ink-soft)] truncate mt-0.5">{displayUnit}</div>
@@ -82,7 +82,7 @@ export default function Saved() {
                     </div>
                   </div>
                   <button 
-                    onClick={(e) => removeFile(e, file.contentId)}
+                    onClick={(e) => removeFile(e, file.filename)}
                     className="p-2.5 text-[var(--ink-faint)] hover:text-[var(--red)] transition-colors hover:bg-[var(--red-bg)] rounded-lg shrink-0"
                   >
                     <TrashIcon className="w-4 h-4" />

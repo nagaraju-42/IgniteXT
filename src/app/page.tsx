@@ -16,8 +16,22 @@ export default function Home() {
   const [userSubjects, setUserSubjects] = useState<any[]>([]);
   const [regulations, setRegulations] = useState<any[]>([]);
   const [popularContent, setPopularContent] = useState<any[]>([]);
+  const [isOffline, setIsOffline] = useState(false);
   
   useEffect(() => {
+    if (!navigator.onLine) setIsOffline(true);
+    
+    const handleOffline = () => setIsOffline(true);
+    const handleOnline = () => {
+      setIsOffline(false);
+      // Retry fetching when back online
+      getRegulations().then(data => setRegulations(data)).catch(() => setIsOffline(true));
+      getPopularContent().then(data => setPopularContent(data)).catch(() => setIsOffline(true));
+    };
+    
+    window.addEventListener('offline', handleOffline);
+    window.addEventListener('online', handleOnline);
+
     // 1. Fetch Profile from cookie
     try {
       const match = document.cookie.match(/(?:^|; )ignitext_profile=([^;]*)/);
@@ -27,17 +41,36 @@ export default function Home() {
         // Fetch subjects for this specific user
         getSubjects(parsed.reg_id, parsed.branch_id, parsed.sem).then(data => {
           setUserSubjects(data);
-        });
+        }).catch(() => setIsOffline(true));
       }
     } catch(e) {}
 
     // 2. Fetch standard home data
-    getRegulations().then(data => setRegulations(data));
-    getPopularContent().then(data => setPopularContent(data));
+    getRegulations().then(data => setRegulations(data)).catch(() => setIsOffline(true));
+    getPopularContent().then(data => setPopularContent(data)).catch(() => setIsOffline(true));
+    
+    return () => {
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('online', handleOnline);
+    };
   }, []);
 
   return (
     <div className="px-[18px] pt-4 pb-8">
+      {/* Offline Banner */}
+      {isOffline && (
+        <div className="mb-6 p-4 bg-[#F2F200]/20 border-2 border-[#D7E600] rounded-[14px] flex flex-col items-center text-center">
+          <div className="w-10 h-10 bg-[var(--paper)] rounded-full flex items-center justify-center mb-2 shadow-sm">
+            <svg className="w-5 h-5 text-[var(--ink)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243 2.829a4.978 4.978 0 01-1.414-2.83m-1.414 5.658a9 9 0 01-2.167-9.238m7.824 2.167a1 1 0 111.414 1.414m-1.414-1.414L3 3m8.293 8.293l1.414 1.414" /></svg>
+          </div>
+          <h3 className="font-bold text-[15px] text-[var(--ink)]">You are currently offline</h3>
+          <p className="text-[12px] text-[var(--ink-soft)] mt-1 max-w-[240px]">You can still access all your downloaded PDFs and notes from the Saved tab.</p>
+          <Link href="/saved" className="mt-3 bg-[var(--ink)] text-[var(--paper)] font-bold text-[13px] px-5 py-2.5 rounded-lg hover:opacity-90 transition-opacity">
+            View Offline Files
+          </Link>
+        </div>
+      )}
+
       <div className="flex justify-between items-start mb-0.5">
         <p className="font-bold text-[19px]">Find your notes</p>
         <Link href="/support" className="text-[10px] font-bold bg-[var(--paper-deep)] text-[var(--ink-soft)] px-2.5 py-1 rounded-full border border-[var(--rule-strong)] hover:bg-[var(--rule)] transition-colors uppercase tracking-wider">

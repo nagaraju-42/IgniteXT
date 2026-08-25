@@ -35,7 +35,7 @@ export function OfflineButton({ contentId, fileUrl, title, sizeKb }: OfflineButt
 
     if (status === 'downloaded') {
       // Open the offline PDF directly
-      const success = await OfflineManager.openNativeFile(contentId, fileUrl);
+      const success = await OfflineManager.openNativeFile(filename);
       if (!success) {
         alert('Could not open offline file.');
       }
