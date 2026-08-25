@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { ActivityIcon, UsersIcon, ClockIcon, ChevronLeftIcon, GlobeIcon, DatabaseIcon } from 'lucide-react';
 import Link from 'next/link';
 
-export default function LiveRadarPage() {
+function LiveRadarPage() {
   const [activeTab, setActiveTab] = useState<'live' | 'history'>('live');
   const [liveStudents, setLiveStudents] = useState<any[]>([]);
   const [history, setHistory] = useState<any[]>([]);
@@ -233,5 +233,38 @@ export default function LiveRadarPage() {
         )}
       </div>
     </div>
+  );
+}
+
+class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, error: any}> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error: any) {
+    return { hasError: true, error };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-8 font-mono text-red-500 whitespace-pre-wrap break-all h-full bg-black">
+          <h1 className="font-bold text-lg mb-4 text-white">Runtime Crash in Live Radar</h1>
+          <div className="bg-red-900/50 p-4 rounded text-red-200">
+            {this.state.error?.toString()}
+            <br/><br/>
+            {this.state.error?.stack}
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+export default function LiveRadarPageWrapper() {
+  return (
+    <ErrorBoundary>
+      <LiveRadarPage />
+    </ErrorBoundary>
   );
 }

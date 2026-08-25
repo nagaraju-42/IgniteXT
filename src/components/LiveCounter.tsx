@@ -2,8 +2,6 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { Capacitor } from '@capacitor/core';
-import { App as CapacitorApp } from '@capacitor/app';
 
 export function LiveCounter() {
   const [count, setCount] = useState(1);
@@ -85,27 +83,13 @@ export function LiveCounter() {
 
     // Web handling
     window.addEventListener('beforeunload', endSession);
-    
-    // Mobile Capacitor handling
-    let appStateListener: any;
-    if (Capacitor.isNativePlatform()) {
-      CapacitorApp.addListener('appStateChange', ({ isActive }) => {
-        if (!isActive) {
-          endSession();
-        } else {
-          // Returning to app - start new session
-          startSession();
-        }
-      }).then(listener => {
-        appStateListener = listener;
-      });
-    }
+    window.addEventListener('pagehide', endSession); // Good fallback for mobile web/PWA
 
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       window.removeEventListener('beforeunload', endSession);
-      if (appStateListener) appStateListener.remove();
+      window.removeEventListener('pagehide', endSession);
       endSession();
       supabase.removeChannel(channel);
     };
