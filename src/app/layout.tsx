@@ -1,7 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { BottomNav } from "@/components/BottomNav";
-import { StudentGateModal } from "@/components/StudentGate";
+import { OnboardingModal } from "@/components/OnboardingModal";
 import { LiveCounter } from "@/components/LiveCounter";
+// import { PushManager } from "@/components/PushManager"; // Re-enable when Firebase is configured
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -37,6 +38,7 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
       </head>
       <body className="antialiased bg-[var(--paper)]">
+        {/* <PushManager /> */}
         <div className="flex justify-center min-h-screen">
           <div className="w-full max-w-[428px] border-x-[3px] border-[var(--ink)] bg-[var(--paper-card)] flex flex-col shadow-[6px_6px_0_var(--paper-deep)] md:my-8 md:rounded-[34px] md:border-y-[3px] md:overflow-hidden relative">
             {/* App Top */}
@@ -48,7 +50,7 @@ export default function RootLayout({
             {/* Screen Content */}
             <div className="flex-1 overflow-y-auto">
               {children}
-              <StudentGateModal />
+              <OnboardingModal />
             </div>
 
             {/* Tab Bar */}

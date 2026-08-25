@@ -7,8 +7,6 @@ import { Capacitor } from "@capacitor/core";
 import { useRouter } from "next/navigation";
 import { recordDownload } from "@/lib/api";
 
-import { requireStudentAccess } from "@/components/StudentGate";
-
 interface OfflineButtonProps {
   contentId: string;
   fileUrl: string;
@@ -37,39 +35,35 @@ export function OfflineButton({ contentId, fileUrl, title, sizeKb }: OfflineButt
 
     if (status === 'downloaded') {
       // Open the offline PDF directly
-      requireStudentAccess(async () => {
-        const success = await OfflineManager.openNativeFile(filename);
-        if (!success) {
-          alert('Could not open offline file.');
-        }
-      });
+      const success = await OfflineManager.openNativeFile(contentId, fileUrl);
+      if (!success) {
+        alert('Could not open offline file.');
+      }
     } else if (status === 'not_downloaded') {
-      requireStudentAccess(async () => {
-        // Prepend R2 Public URL if it's just a key, and ensure spaces are properly encoded
-        let downloadUrl = fileUrl.startsWith('http') ? fileUrl : `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/${fileUrl}`;
-        downloadUrl = encodeURI(downloadUrl);
-        
-        // On Web, Capacitor's download implementation hits Cloudflare CORS restrictions.
-        // It's best to just trigger a native browser download/open for web users!
-        if (Capacitor.getPlatform() === 'web') {
-          recordDownload(contentId).catch(console.error);
-          window.open(downloadUrl, '_blank');
-          return; // Don't try to save offline
-        }
-
-        // Native Mobile Flow (Android/iOS)
-        setStatus('downloading');
+      // Prepend R2 Public URL if it's just a key, and ensure spaces are properly encoded
+      let downloadUrl = fileUrl.startsWith('http') ? fileUrl : `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/${fileUrl}`;
+      downloadUrl = encodeURI(downloadUrl);
+      
+      // On Web, Capacitor's download implementation hits Cloudflare CORS restrictions.
+      // It's best to just trigger a native browser download/open for web users!
+      if (Capacitor.getPlatform() === 'web') {
         recordDownload(contentId).catch(console.error);
-        
-        const path = await OfflineManager.downloadFile(downloadUrl, filename);
-        if (path) {
-          OfflineManager.saveMetadata(filename, title, sizeKb);
-          setStatus('downloaded');
-        } else {
-          alert("Download failed. Please check your internet connection.");
-          setStatus('not_downloaded');
-        }
-      });
+        window.open(downloadUrl, '_blank');
+        return; // Don't try to save offline
+      }
+
+      // Native Mobile Flow (Android/iOS)
+      setStatus('downloading');
+      recordDownload(contentId).catch(console.error);
+      
+      const path = await OfflineManager.downloadFile(downloadUrl, filename);
+      if (path) {
+        OfflineManager.saveMetadata(filename, title, sizeKb);
+        setStatus('downloaded');
+      } else {
+        alert("Download failed. Please check your internet connection.");
+        setStatus('not_downloaded');
+      }
     }
   }
 

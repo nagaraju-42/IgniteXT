@@ -1,15 +1,40 @@
+'use client';
+
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { DownloadIcon, GridIcon, SearchIcon, AlertCircleIcon } from "lucide-react";
-import { getRegulations, getPopularContent } from "@/lib/api";
+import { GridIcon, SearchIcon, AlertCircleIcon, BookIcon, HistoryIcon } from "lucide-react";
+import { getRegulations, getPopularContent, getSubjects } from "@/lib/api";
 import { OfflineButton } from "@/components/OfflineButton";
 import { ReportButton } from "@/components/ReportButton";
 import { ClientGateLink } from "@/components/ClientGateLink";
 
-// This is a Server Component, meaning this fetches data securely on the server
-// before rendering the HTML for the mobile wrapper
-export default async function Home() {
-  const regulations = await getRegulations();
-  const popularContent = await getPopularContent();
+import { getUnitColor } from "@/lib/colorUtils";
+import { FileTypeIcon } from "@/components/FileTypeIcon";
+
+export default function Home() {
+  const [profile, setProfile] = useState<any>(null);
+  const [userSubjects, setUserSubjects] = useState<any[]>([]);
+  const [regulations, setRegulations] = useState<any[]>([]);
+  const [popularContent, setPopularContent] = useState<any[]>([]);
+  
+  useEffect(() => {
+    // 1. Fetch Profile from cookie
+    try {
+      const match = document.cookie.match(/(?:^|; )ignitext_profile=([^;]*)/);
+      if (match && match[1]) {
+        const parsed = JSON.parse(decodeURIComponent(match[1]));
+        setProfile(parsed);
+        // Fetch subjects for this specific user
+        getSubjects(parsed.reg_id, parsed.branch_id, parsed.sem).then(data => {
+          setUserSubjects(data);
+        });
+      }
+    } catch(e) {}
+
+    // 2. Fetch standard home data
+    getRegulations().then(data => setRegulations(data));
+    getPopularContent().then(data => setPopularContent(data));
+  }, []);
 
   return (
     <div className="px-[18px] pt-4 pb-8">
@@ -20,43 +45,80 @@ export default async function Home() {
         </Link>
       </div>
       <p className="text-[11.5px] text-[var(--ink-soft)] mb-3.5">
-        Free · no login needed to browse
+        Free • no login needed to browse
       </p>
 
       <Link href="/search" className="flex items-center gap-2 border-[1.5px] border-[var(--ink)] rounded-lg px-3 py-2.5 text-[13px] text-[var(--ink-faint)] mb-4 bg-[var(--paper)]">
         <SearchIcon className="w-4 h-4 text-[var(--ink-soft)]" /> Search subject, unit or code
       </Link>
 
-      <p className="text-[11px] font-semibold text-[var(--ink-soft)] mb-2 uppercase tracking-wide">
-        Choose Regulation
-      </p>
-      <div className="flex gap-2 flex-wrap mb-3.5">
-        {regulations.length > 0 ? (
-          regulations.map((reg) => (
-            <div 
-              key={reg.id}
-              className={`font-mono text-[11px] border-[1.5px] rounded-full px-3 py-1 cursor-pointer transition-colors ${
-                reg.code === 'R22' 
-                  ? 'border-[var(--ink)] bg-[var(--hl)] text-[var(--hl-ink)] font-semibold' 
-                  : 'border-[var(--rule-strong)] text-[var(--ink-soft)]'
-              }`}
-            >
-              {reg.code}
-            </div>
-          ))
-        ) : (
-          <div className="text-[12px] text-[var(--ink-soft)] flex items-center gap-1.5 py-1">
-            <AlertCircleIcon className="w-3.5 h-3.5" /> No regulations found in database
+      {profile && userSubjects.length > 0 && (
+        <div className="mb-5">
+          <div className="flex items-center gap-2 mb-2.5">
+            <BookIcon className="w-4 h-4 text-[var(--ink)]" />
+            <p className="text-[12.5px] font-bold text-[var(--ink)] uppercase tracking-wide">
+              Your Semester Subjects
+            </p>
           </div>
-        )}
-      </div>
-
-      <Link href="/browse" className="border-[1.5px] border-[var(--rule-strong)] rounded-lg p-3 mb-2.5 bg-[var(--paper)] flex justify-between items-center hover:bg-[var(--paper-deep)] transition-colors group">
-        <div>
-          <div className="font-semibold text-[13px] group-hover:text-[var(--hl-ink)] transition-colors">Continue browsing</div>
+          <div className="flex flex-col gap-2">
+            {userSubjects.map(sub => (
+              <Link 
+                key={sub.id} 
+                href={`/subject?id=${sub.id}`}
+                className="border-[1.5px] border-[var(--rule-strong)] rounded-lg p-3 bg-[var(--paper)] flex justify-between items-center hover:border-[var(--ink)] transition-colors group shadow-sm"
+              >
+                <div className="flex-1 min-w-0 pr-2">
+                  <div className="font-bold text-[14px] text-[var(--ink)] leading-tight truncate group-hover:underline">
+                    {sub.name}
+                  </div>
+                  <div className="font-mono text-[10px] text-[var(--ink-soft)] mt-1.5 flex gap-2">
+                    <span className="bg-[var(--paper-deep)] px-1.5 py-0.5 rounded text-[var(--ink-soft)] font-semibold">{sub.code}</span>
+                    <span className="flex items-center">{sub.total_content || 0} files</span>
+                  </div>
+                </div>
+                <div className="w-8 h-8 rounded-full bg-[var(--paper-deep)] flex items-center justify-center group-hover:bg-[var(--ink)] group-hover:text-[var(--paper)] transition-colors shrink-0">
+                  <GridIcon className="w-4 h-4" />
+                </div>
+              </Link>
+            ))}
+          </div>
         </div>
-        <GridIcon className="w-[18px] h-[18px] text-[var(--ink-soft)] group-hover:text-[var(--ink)] transition-colors" />
-      </Link>
+      )}
+
+      {!profile && (
+        <>
+          <p className="text-[11px] font-semibold text-[var(--ink-soft)] mb-2 uppercase tracking-wide">
+            Choose Regulation
+          </p>
+          <div className="flex gap-2 flex-wrap mb-3.5">
+            {regulations.length > 0 ? (
+              regulations.map((reg) => (
+                <div 
+                  key={reg.id}
+                  className={`font-mono text-[11px] border-[1.5px] rounded-full px-3 py-1 cursor-pointer transition-colors ${
+                    reg.code === 'R22' 
+                      ? 'border-[var(--ink)] bg-[var(--hl)] text-[var(--hl-ink)] font-semibold' 
+                      : 'border-[var(--rule-strong)] text-[var(--ink-soft)]'
+                  }`}
+                >
+                  {reg.code}
+                </div>
+              ))
+            ) : (
+              <div className="text-[12px] text-[var(--ink-soft)] flex items-center gap-1.5 py-1">
+                <AlertCircleIcon className="w-3.5 h-3.5" /> No regulations found in database
+              </div>
+            )}
+          </div>
+
+          <Link href="/browse" className="border-[1.5px] border-[var(--rule-strong)] rounded-lg p-3 mb-2.5 bg-[var(--paper)] flex justify-between items-center hover:bg-[var(--paper-deep)] transition-colors group">
+            <div>
+              <div className="font-semibold text-[13px] group-hover:text-[var(--hl-ink)] transition-colors">Continue browsing</div>
+            </div>
+            <GridIcon className="w-[18px] h-[18px] text-[var(--ink-soft)] group-hover:text-[var(--ink)] transition-colors" />
+          </Link>
+        </>
+      )}
 
       <p className="text-[11px] font-semibold text-[var(--ink-soft)] mb-2 mt-4 uppercase tracking-wide">
         Most Downloaded This Week
@@ -65,23 +127,23 @@ export default async function Home() {
       <div className="flex flex-col gap-2.5">
         {popularContent.length > 0 ? (
           popularContent.map((item) => (
-            <div key={item.id} className="border-[1.5px] border-[var(--rule-strong)] rounded-lg p-3 bg-[var(--paper)] flex justify-between items-center gap-2.5">
-              <ClientGateLink url={item.file_url} className="flex-1 pr-2 block">
-                <div className="font-bold text-[14px] text-[var(--ink)] leading-tight mb-1.5 line-clamp-2 hover:underline">
+            <div key={item.id} className="border-[1.5px] border-[var(--rule-strong)] rounded-lg p-3 bg-[var(--paper)] flex justify-between items-center gap-3">
+              <FileTypeIcon filename={item.file_url} className="w-10 h-10 rounded-lg shrink-0 flex items-center justify-center shadow-sm" />
+              <ClientGateLink url={item.file_url} className="flex-1 min-w-0 block">
+                <div className="font-bold text-[14px] text-[var(--ink)] leading-tight mb-1.5 truncate hover:underline">
                   {(() => {
                     if (item.type === 'note') {
                       if (item.unit_title) return item.unit_title;
                       if (item.subject_name) return `${item.subject_name} - Unit ${item.unit_number || ''}`.trim();
                       return `Unit ${item.unit_number || ''}`.trim();
                     }
-                    // For PYQs or other types, just clean up "null " if it slipped into the DB
                     return item.title.replace(/^null\s/, item.subject_name ? item.subject_name + ' ' : '');
                   })()}
                 </div>
                 
-                <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
                   {item.type === 'note' && item.unit_number && (
-                    <span className="bg-[var(--hl)] text-[var(--ink)] px-1.5 py-0.5 rounded-[4px] text-[9.5px] font-extrabold uppercase tracking-wider">
+                    <span className={`${getUnitColor(item.unit_number)} px-1.5 py-0.5 rounded-[4px] text-[9.5px] font-extrabold uppercase tracking-wider`}>
                       Unit {item.unit_number}
                     </span>
                   )}
@@ -97,9 +159,9 @@ export default async function Home() {
 
                 <div className="font-mono text-[10px] text-[var(--ink-soft)] flex items-center gap-1.5">
                   <span className="font-semibold">{item.regulation_code}</span>
-                  <span>·</span>
+                  <span>•</span>
                   <span className="font-semibold">{item.branch_code}</span>
-                  <span>·</span>
+                  <span>•</span>
                   <span>{item.download_count} DLs</span>
                 </div>
               </ClientGateLink>
