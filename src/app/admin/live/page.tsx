@@ -22,7 +22,7 @@ export default function LiveRadarPage() {
       
       for (const id in state) {
         state[id].forEach((presence: any) => {
-          if (!presence.is_anonymous) {
+          if (!presence.is_anonymous && presence.roll) {
             students.push({
               ...presence,
               clientId: id
@@ -31,8 +31,12 @@ export default function LiveRadarPage() {
         });
       }
       
-      // Sort by online time (newest first)
-      students.sort((a, b) => new Date(b.online_at).getTime() - new Date(a.online_at).getTime());
+      // Sort by online time (newest first), safely handle missing dates
+      students.sort((a, b) => {
+        const timeA = a.online_at ? new Date(a.online_at).getTime() : 0;
+        const timeB = b.online_at ? new Date(b.online_at).getTime() : 0;
+        return (isNaN(timeB) ? 0 : timeB) - (isNaN(timeA) ? 0 : timeA);
+      });
       setLiveStudents(students);
     }).subscribe();
 
@@ -60,10 +64,15 @@ export default function LiveRadarPage() {
     setLoadingHistory(false);
   };
 
-  const getDurationString = (start: string, end?: string) => {
+  const getDurationString = (start?: string, end?: string) => {
+    if (!start) return 'Unknown';
     const startTime = new Date(start).getTime();
+    if (isNaN(startTime)) return 'Unknown';
+
     const endTime = end ? new Date(end).getTime() : new Date().getTime();
-    const diffMins = Math.floor((endTime - startTime) / 60000);
+    const safeEndTime = isNaN(endTime) ? new Date().getTime() : endTime;
+    
+    const diffMins = Math.floor((safeEndTime - startTime) / 60000);
     
     if (diffMins < 1) return 'Just now';
     if (diffMins < 60) return `${diffMins} min${diffMins > 1 ? 's' : ''}`;
@@ -71,6 +80,20 @@ export default function LiveRadarPage() {
     const hours = Math.floor(diffMins / 60);
     const mins = diffMins % 60;
     return `${hours} hr ${mins} min`;
+  };
+
+  const safeFormatTime = (dateStr?: string) => {
+    if (!dateStr) return 'Unknown';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return 'Unknown';
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const safeFormatDate = (dateStr?: string) => {
+    if (!dateStr) return 'Unknown';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return 'Unknown';
+    return d.toLocaleDateString();
   };
 
   return (
@@ -176,10 +199,10 @@ export default function LiveRadarPage() {
                     <div className="flex flex-col items-end text-right">
                       <div className="text-[11px] font-bold text-[var(--ink-soft)] flex items-center gap-1">
                         <ClockIcon className="w-3.5 h-3.5" /> 
-                        {new Date(log.joined_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {safeFormatTime(log.joined_at)}
                       </div>
                       <div className="text-[10px] text-[var(--ink-faint)] mt-1">
-                        {new Date(log.joined_at).toLocaleDateString()}
+                        {safeFormatDate(log.joined_at)}
                       </div>
                     </div>
                   </div>
@@ -191,7 +214,7 @@ export default function LiveRadarPage() {
                     </div>
                     <div>
                       {log.left_at ? (
-                        <span className="text-[var(--ink-faint)]">Exited {new Date(log.left_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        <span className="text-[var(--ink-faint)]">Exited {safeFormatTime(log.left_at)}</span>
                       ) : (
                         <span className="text-green-600 font-bold flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-green-500"></span> Live or force closed</span>
                       )}
