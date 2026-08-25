@@ -1,32 +1,36 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { Capacitor } from '@capacitor/core';
+import { App as CapacitorApp } from '@capacitor/app';
 
 export function LiveCounter() {
   const [count, setCount] = useState(1);
   const [isOnline, setIsOnline] = useState(true);
   const [profile, setProfile] = useState<any>(null);
   const supabase = createClient();
+  const sessionIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    // Check initial online status
     setIsOnline(navigator.onLine);
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    // Check for profile cookie
+    let parsedProfile = null;
     try {
       const match = document.cookie.match(/(?:^|; )ignitext_profile=([^;]*)/);
       if (match && match[1]) {
-        setProfile(JSON.parse(decodeURIComponent(match[1])));
+        parsedProfile = JSON.parse(decodeURIComponent(match[1]));
+        setProfile(parsedProfile);
       }
     } catch(e) {}
 
     if (!navigator.onLine) return;
 
+    // 1. Setup Supabase Presence (Live Radar)
     const channel = supabase.channel('global_room', {
       config: { presence: { key: 'user' } },
     });
@@ -42,27 +46,70 @@ export function LiveCounter() {
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
-          // If profile exists, track their roll and branch!
-          const trackData = profile ? {
-            roll: profile.roll,
-            branch: profile.branch_code,
-            sem: profile.sem,
+          const trackData = parsedProfile ? {
+            roll: parsedProfile.roll,
+            branch: parsedProfile.branch_code,
+            sem: parsedProfile.sem,
             online_at: new Date().toISOString()
           } : { 
             is_anonymous: true,
             online_at: new Date().toISOString() 
           };
-          
           await channel.track(trackData);
         }
       });
 
+    // 2. Setup Historical Session Logging (Database)
+    async function startSession() {
+      if (!parsedProfile) return;
+      const { data } = await supabase.from('student_sessions').insert({
+        roll_number: parsedProfile.roll,
+        branch_code: parsedProfile.branch_code,
+        semester: parsedProfile.sem
+      }).select('id').single();
+      
+      if (data) {
+        sessionIdRef.current = data.id;
+      }
+    }
+    startSession();
+
+    // 3. Handle Exit/Background to record `left_at`
+    const endSession = async () => {
+      if (sessionIdRef.current) {
+        await supabase.from('student_sessions').update({
+          left_at: new Date().toISOString()
+        }).eq('id', sessionIdRef.current);
+      }
+    };
+
+    // Web handling
+    window.addEventListener('beforeunload', endSession);
+    
+    // Mobile Capacitor handling
+    let appStateListener: any;
+    if (Capacitor.isNativePlatform()) {
+      CapacitorApp.addListener('appStateChange', ({ isActive }) => {
+        if (!isActive) {
+          endSession();
+        } else {
+          // Returning to app - start new session
+          startSession();
+        }
+      }).then(listener => {
+        appStateListener = listener;
+      });
+    }
+
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('beforeunload', endSession);
+      if (appStateListener) appStateListener.remove();
+      endSession();
       supabase.removeChannel(channel);
     };
-  }, [profile?.roll]); // re-run if profile loads
+  }, []); // Run once on mount
 
   if (!isOnline) {
     return (

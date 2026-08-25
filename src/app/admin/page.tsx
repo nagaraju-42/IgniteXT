@@ -175,6 +175,17 @@ export default function AdminDashboard() {
       <h2 className="font-bold text-[16px] mb-3">Dashboard Controls</h2>
       <div className="flex flex-col gap-3">
         
+        <Link href="/admin/live" className="border-[1.5px] border-green-500 rounded-xl p-4 bg-green-500/5 hover:bg-green-500/10 transition-colors flex items-center gap-4 relative overflow-hidden">
+          <div className="w-10 h-10 rounded-full bg-green-500 text-white flex items-center justify-center shrink-0">
+            <UsersIcon className="w-5 h-5" />
+          </div>
+          <div className="absolute top-4 right-4 w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+          <div>
+            <div className="font-semibold text-[14px] text-green-700">Activity Radar</div>
+            <div className="text-[11px] text-green-600/80 mt-0.5">Watch live students & session history</div>
+          </div>
+        </Link>
+        
         <Link href="/admin/upload" className="border-[1.5px] border-[var(--ink)] rounded-xl p-4 bg-[var(--paper-card)] hover:bg-[var(--paper-deep)] transition-colors flex items-center gap-4">
           <div className="w-10 h-10 rounded-full bg-[var(--ink)] text-[var(--paper)] flex items-center justify-center shrink-0">
             <UploadCloudIcon className="w-5 h-5" />
