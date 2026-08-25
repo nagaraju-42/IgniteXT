@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { createClient as createRawClient } from '@supabase/supabase-js';
 import { ActivityIcon, UsersIcon, ClockIcon, ChevronLeftIcon, GlobeIcon, DatabaseIcon } from 'lucide-react';
 import Link from 'next/link';
 
@@ -14,7 +15,14 @@ function LiveRadarPage() {
 
   // Load Live Data (Presence)
   useEffect(() => {
-    const channel = supabase.channel('global_room');
+    // Create an isolated client just for this channel so it doesn't conflict
+    // with the LiveCounter singleton channel that is already subscribed
+    const radarSupabase = createRawClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+    
+    const channel = radarSupabase.channel('global_room');
     
     channel.on('presence', { event: 'sync' }, () => {
       const state = channel.presenceState();
@@ -41,7 +49,7 @@ function LiveRadarPage() {
     }).subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      radarSupabase.removeChannel(channel);
     };
   }, []);
 
