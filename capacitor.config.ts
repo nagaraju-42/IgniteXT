@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.ignitext.app',
-  appName: 'IgniteXT',
+  appName: 'SemKit',
   webDir: 'out',
   bundledWebRuntime: false,
   plugins: {

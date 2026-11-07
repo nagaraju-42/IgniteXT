@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# mobile & native artifacts
+*.apk
+*.aab
+*.keystore
+/mobile-expo/

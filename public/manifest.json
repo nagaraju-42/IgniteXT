@@ -1,6 +1,6 @@
 {
-  "name": "IgniteXT",
-  "short_name": "IgniteXT",
+  "name": "SemKit",
+  "short_name": "SemKit",
   "description": "Free B.Tech notes, PYQs and exam updates for engineering students",
   "start_url": "/",
   "display": "standalone",

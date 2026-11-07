@@ -24,8 +24,47 @@ export default function Saved() {
     loadFiles();
   };
 
-  const handleOpen = (filename: string, title: string) => {
-    router.push(`/read?file=${encodeURIComponent(filename)}&title=${encodeURIComponent(title)}`);
+  const handleOpen = async (filename: string, title: string) => {
+    try {
+      const isPdf = filename.toLowerCase().endsWith('.pdf');
+      
+      // If it's a PDF, open it inside our dynamically loaded IgniteXT app reader!
+      if (isPdf) {
+        router.push(`/read?file=${encodeURIComponent(filename)}&title=${encodeURIComponent(title)}`);
+        return;
+      }
+
+      const { Filesystem, Directory } = await import('@capacitor/filesystem');
+      const { FileOpener } = await import('@capacitor-community/file-opener');
+      const { Capacitor } = await import('@capacitor/core');
+
+      if (Capacitor.isNativePlatform()) {
+        const { uri } = await Filesystem.getUri({
+          path: `pdf_cache/${filename}`,
+          directory: Directory.Data
+        });
+        
+        await FileOpener.open({ filePath: uri });
+        return;
+      } else {
+        // We are on web, try to create an object URL
+        const result = await Filesystem.readFile({
+          path: `pdf_cache/${filename}`,
+          directory: Directory.Data
+        });
+        
+        if (result.data instanceof Blob) {
+          window.open(URL.createObjectURL(result.data));
+        } else {
+          // It's base64, open it
+          const type = filename.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream';
+          window.open(`data:${type};base64,${result.data}`);
+        }
+      }
+    } catch (error) {
+      console.log('Failed to open file:', error);
+      alert("Could not open this file type on your device. Please install a PDF or Word Viewer.");
+    }
   };
 
   return (
