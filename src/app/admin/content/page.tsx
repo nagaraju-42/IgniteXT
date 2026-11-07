@@ -165,7 +165,7 @@ export default function ContentAndLogs() {
                     </div>
 
                     <div className="font-mono text-[10px] text-[var(--ink-soft)] flex items-center justify-between mt-2 pt-2 border-t border-[var(--rule)]">
-                      <span>{item.download_count} DLs</span>
+                      
                       <span>By: {item.uploader_name}</span>
                     </div>
                   </div>

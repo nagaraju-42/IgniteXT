@@ -138,7 +138,7 @@ export default function CommunityAdminDashboard() {
               <div className="flex-1 min-w-0">
                 <div className="font-semibold text-[13px] truncate">{item.title.replace(/^null\s/, item.subjects?.name ? item.subjects.name + ' ' : '')}</div>
                 <div className="font-mono text-[10px] text-[var(--ink-soft)] mt-0.5">
-                  {item.file_size_kb ? `${(item.file_size_kb / 1024).toFixed(1)} MB` : 'PDF'} · {item.download_count || 0} Downloads
+                  {item.file_size_kb ? `${(item.file_size_kb / 1024).toFixed(1)} MB` : 'PDF'}
                 </div>
               </div>
               <span className={`text-[10px] font-bold px-2 py-1 rounded ${item.status === 'published' ? 'bg-[var(--hl)] text-[var(--ink)]' : 'bg-[var(--paper-deep)] text-[var(--ink-soft)]'}`}>

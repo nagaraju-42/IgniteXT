@@ -20,7 +20,8 @@ export function OfflineButton({ contentId, fileUrl, title, sizeKb }: OfflineButt
   const filename = OfflineManager.getFileName(fileUrl);
   const router = useRouter();
 
-  const getOnlineUrl = () => fileUrl.startsWith('http') ? fileUrl : `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/${fileUrl}`;
+  const DEFAULT_R2_URL = 'https://pub-fba885359a4d40d6bd6e89575d51f9ca.r2.dev';
+  const getOnlineUrl = () => fileUrl.startsWith('http') ? fileUrl : `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL || DEFAULT_R2_URL}/${fileUrl}`;
 
   useEffect(() => {
     checkStatus();

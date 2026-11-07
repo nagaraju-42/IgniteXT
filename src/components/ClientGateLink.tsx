@@ -8,9 +8,10 @@ interface ClientGateLinkProps {
 
 export function ClientGateLink({ url, children, className }: ClientGateLinkProps) {
   const handleOpen = () => {
+    const r2Base = process.env.NEXT_PUBLIC_R2_PUBLIC_URL || 'https://pub-fba885359a4d40d6bd6e89575d51f9ca.r2.dev';
     let fullUrl = url.startsWith('http') 
       ? url 
-      : `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL}/${url}`;
+      : `${r2Base}/${url}`;
     fullUrl = encodeURI(fullUrl);
     window.open(fullUrl, '_blank');
   };

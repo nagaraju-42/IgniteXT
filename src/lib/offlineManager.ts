@@ -68,12 +68,12 @@ export const OfflineManager = {
         return false;
       }
       
-      const { FileOpener } = await import('@capawesome-team/capacitor-file-opener');
+      const { FileOpener } = await import('@capacitor-community/file-opener');
       const uriResult = await Filesystem.getUri({
         path: `pdf_cache/${filename}`,
         directory: Directory.Data
       });
-      await FileOpener.openFile({ path: uriResult.uri, mimeType: 'application/pdf' });
+      await FileOpener.open({ filePath: uriResult.uri });
       return true;
     } catch (error) {
       console.error('Failed to open native file:', error);
