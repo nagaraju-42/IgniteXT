@@ -80,9 +80,7 @@ export default function Saved() {
               className="border-[1.5px] border-[var(--rule-strong)] rounded-lg p-3 bg-[var(--paper)] flex justify-between items-center gap-2.5 cursor-pointer hover:bg-[var(--paper-deep)] transition-colors"
             >
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded bg-[var(--red-bg)] text-[var(--red)] flex items-center justify-center shrink-0">
-                  <FileTextIcon className="w-4 h-4" />
-                </div>
+                
                 <div>
                   <div className="font-semibold text-[13.5px]">{file.title}</div>
                   <div className="font-mono text-[10.5px] text-[var(--ink-soft)] mt-0.5">

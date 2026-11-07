@@ -20,7 +20,7 @@ export function BottomNav() {
   };
 
   return (
-    <div className="shrink-0 flex justify-around px-2.5 pt-2.5 pb-[max(12px,env(safe-area-inset-bottom))] border-t border-[var(--rule)] bg-[var(--paper-card)] z-50 select-none shadow-[0_-2px_8px_rgba(0,0,0,0.04)]">
+    <div data-hide-on-pdf-fullscreen="true" className="shrink-0 flex justify-around px-2.5 pt-2.5 pb-[max(12px,env(safe-area-inset-bottom))] border-t border-[var(--rule)] bg-[var(--paper-card)] z-50 select-none shadow-[0_-2px_8px_rgba(0,0,0,0.04)]">
       <Link href="/" className={getLinkClass('/')}>
         <HomeIcon className="w-[19px] h-[19px]" />
         <span>Home</span>

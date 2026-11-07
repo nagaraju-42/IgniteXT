@@ -27,7 +27,7 @@ export function FeedbackWidget() {
     <>
       <button 
         onClick={() => setIsOpen(true)}
-        className="absolute bottom-[80px] right-4 w-[46px] h-[46px] rounded-full bg-[var(--ink)] shadow-[4px_4px_0_rgba(0,0,0,0.2)] flex items-center justify-center hover:scale-105 active:scale-95 transition-all z-40 border-[2px] border-[var(--paper)]"
+        data-hide-on-pdf-fullscreen="true" className="absolute bottom-[80px] right-4 w-[46px] h-[46px] rounded-full bg-[var(--ink)] shadow-[4px_4px_0_rgba(0,0,0,0.2)] flex items-center justify-center hover:scale-105 active:scale-95 transition-all z-40 border-[2px] border-[var(--paper)]"
       >
         <MessageSquareIcon className="w-5 h-5 text-[var(--paper)]" />
       </button>

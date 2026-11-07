@@ -59,6 +59,7 @@ export default function PlatformSettings() {
     if (error) {
       setMessage({ text: error.message, type: 'error' });
     } else {
+      try { localStorage.setItem('semkit_show_tip_jar', String(settings.show_tip_jar)); } catch(e) {}
       setMessage({ text: 'Settings updated successfully!', type: 'success' });
       setTimeout(() => setMessage({ text: '', type: '' }), 3000);
     }
@@ -124,8 +125,8 @@ export default function PlatformSettings() {
             
             <div className="flex items-center justify-between border-b border-[var(--rule)] pb-4">
               <div>
-                <label className="block text-[13px] font-semibold text-[var(--ink)]">Show Tip Jar</label>
-                <p className="text-[11px] text-[var(--ink-soft)]">Display UPI donate option on downloads</p>
+                <label className="block text-[13px] font-semibold text-[var(--ink)]">Show Tip Jar & UPI Donation Banner (ON / OFF)</label>
+                <p className="text-[11px] text-[var(--ink-soft)]">When OFF, students only see "Download Complete" with no donation asking or UPI QR code banner.</p>
               </div>
               <input 
                 type="checkbox" 

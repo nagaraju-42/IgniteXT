@@ -93,3 +93,9 @@ h1, h2, h3, h4, h5, h6 {
     background-color: var(--paper-deep);
   }
 }
+
+
+/* Reader Fullscreen Override */
+body.pdf-fullscreen-active [data-hide-on-pdf-fullscreen="true"] {
+  display: none !important;
+}

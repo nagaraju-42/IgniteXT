@@ -85,7 +85,7 @@ export function HeaderBar() {
   }, []);
 
   return (
-    <div className="shrink-0 px-[14px] pb-3 pt-3 flex items-center justify-between border-b border-[var(--rule)] bg-[var(--ink)] z-40 select-none">
+    <div data-hide-on-pdf-fullscreen="true" className="shrink-0 px-[14px] pb-3 pt-3 flex items-center justify-between border-b border-[var(--rule)] bg-[var(--ink)] z-40 select-none">
       {/* Logo */}
       <Link href="/" className="flex items-center gap-2">
         <img src="/logo.png" alt="SemKit Logo" className="h-[28px] object-contain" />

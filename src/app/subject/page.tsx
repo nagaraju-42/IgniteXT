@@ -7,7 +7,6 @@ import { createClient } from "@/lib/supabase/client";
 import { OfflineButton } from "@/components/OfflineButton";
 import { ReportButton } from "@/components/ReportButton";
 import { getUnitColor } from "@/lib/colorUtils";
-import { FileTypeIcon } from "@/components/FileTypeIcon";
 import { OfflineManager } from "@/lib/offlineManager";
 
 const DEFAULT_R2_URL = 'https://pub-fba885359a4d40d6bd6e89575d51f9ca.r2.dev';
@@ -252,8 +251,7 @@ function SubjectContent() {
                   <div className="flex flex-col gap-2.5">
                     {unitNotes.map(note => (
                       <div key={note.id} className="border-[1.5px] border-[var(--rule-strong)] rounded-lg p-3 bg-[var(--paper)] flex justify-between items-center gap-3">
-                        <FileTypeIcon filename={note.file_url} className="w-10 h-10 rounded-lg shrink-0 flex items-center justify-center shadow-sm" />
-                        <div
+                                                <div
                           className="flex-1 min-w-0 cursor-pointer"
                           onClick={() => handleOpenFile(note.file_url, `${subject.name} - ${note.title}`)}
                         >
@@ -293,8 +291,7 @@ function SubjectContent() {
               <div className="flex flex-col gap-2.5">
                 {generalNotes.map(note => (
                   <div key={note.id} className="border-[1.5px] border-[var(--rule-strong)] rounded-lg p-3 bg-[var(--paper)] flex justify-between items-center gap-3">
-                    <FileTypeIcon filename={note.file_url} className="w-10 h-10 rounded-lg shrink-0 flex items-center justify-center shadow-sm" />
-                    <div
+                                        <div
                       className="flex-1 min-w-0 cursor-pointer"
                       onClick={() => handleOpenFile(note.file_url, `${subject.name} - ${note.title}`)}
                     >
@@ -323,8 +320,7 @@ function SubjectContent() {
           <div className="flex flex-col gap-2.5 mb-8">
             {pyqs.map(pyq => (
               <div key={pyq.id} className="border-[1.5px] border-[var(--rule-strong)] rounded-lg p-3 bg-[var(--paper)] flex justify-between items-center gap-3">
-                <FileTypeIcon filename={pyq.file_url} className="w-10 h-10 rounded-lg shrink-0 flex items-center justify-center shadow-sm" />
-                <div
+                                <div
                   className="flex-1 min-w-0 cursor-pointer"
                   onClick={() => handleOpenFile(pyq.file_url, `${subject.name} - ${pyq.title}`)}
                 >
