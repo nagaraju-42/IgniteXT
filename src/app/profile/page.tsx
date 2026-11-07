@@ -14,15 +14,21 @@ import {
   SlidersHorizontalIcon,
   CheckCircle2Icon,
   UploadCloudIcon,
+  CameraIcon,
+  SparklesIcon
 } from "lucide-react";
 import { OnboardingModal, StudentProfile } from "@/components/OnboardingModal";
+import { HallTicketScannerModal } from "@/components/HallTicketScannerModal";
+import { getExamTimetable } from "@/lib/hallTicketScanner";
 
 export default function Profile() {
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [studentProfile, setStudentProfile] = useState<StudentProfile | null>(null);
+  const [timetable, setTimetable] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
   const router = useRouter();
   const supabase = createClient();
 
@@ -40,8 +46,15 @@ export default function Profile() {
     } catch (e) {}
   };
 
+  const loadTimetable = () => {
+    try {
+      setTimetable(getExamTimetable());
+    } catch(e) {}
+  };
+
   useEffect(() => {
     loadStudentSpace();
+    loadTimetable();
 
     async function checkAuth() {
       const { data: { user } } = await supabase.auth.getUser();
@@ -54,12 +67,18 @@ export default function Profile() {
     }
     checkAuth();
 
-    const handleProfileChange = () => loadStudentSpace();
+    const handleProfileChange = () => {
+      loadStudentSpace();
+      loadTimetable();
+    };
+
     window.addEventListener('semkit_profile_changed', handleProfileChange);
     window.addEventListener('ignitext_profile_changed', handleProfileChange);
+    window.addEventListener('semkit_timetable_updated', loadTimetable);
     return () => {
       window.removeEventListener('semkit_profile_changed', handleProfileChange);
       window.removeEventListener('ignitext_profile_changed', handleProfileChange);
+      window.removeEventListener('semkit_timetable_updated', loadTimetable);
     };
   }, [supabase]);
 
@@ -72,8 +91,9 @@ export default function Profile() {
 
   const handleClearCache = () => {
     try {
+      localStorage.removeItem('semkit_offline_files');
       localStorage.removeItem('ignitext_offline_files');
-      alert('Offline cache cleared.');
+      alert('Offline notes cache cleared.');
     } catch (e) {}
   };
 
@@ -82,7 +102,7 @@ export default function Profile() {
       <h1 className="font-bold text-[20px] mb-5">Your Profile & Space</h1>
 
       {/* Student Space Card */}
-      <div className="border-[2px] border-[var(--ink)] rounded-2xl p-4 bg-[var(--paper)] mb-6 shadow-[3px_3px_0_var(--ink)]">
+      <div className="border-[2px] border-[var(--ink)] rounded-2xl p-4 bg-[var(--paper)] mb-5 shadow-[3px_3px_0_var(--ink)]">
         <div className="flex items-center justify-between mb-3 pb-3 border-b border-[var(--rule)]">
           <div className="flex items-center gap-2.5">
             <div className="w-10 h-10 rounded-full bg-[#D7E600] border-[1.5px] border-[var(--ink)] flex items-center justify-center shadow-sm">
@@ -125,6 +145,51 @@ export default function Profile() {
           <p className="text-[12px] text-[var(--ink-soft)] leading-relaxed">
             Personalize your space once to load your semester subjects automatically every time you open SemKit.
           </p>
+        )}
+      </div>
+
+      {/* Hall Ticket & Live Timetable Card */}
+      <div className="border-[2px] border-[var(--ink)] rounded-2xl p-4 bg-[#D7E600]/20 mb-6 shadow-[3px_3px_0_var(--ink)]">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <CameraIcon className="w-5 h-5 text-[var(--ink)]" />
+            <h2 className="font-bold text-[14px] text-[var(--ink)]">
+              Hall Ticket & Live Timetable
+            </h2>
+          </div>
+          <span className="font-mono text-[9.5px] font-bold bg-[var(--ink)] text-[var(--paper)] px-2 py-0.5 rounded-full">
+            AI-POWERED
+          </span>
+        </div>
+        <p className="text-[11.5px] text-[var(--ink-soft)] mb-3 leading-relaxed">
+          Scan your hall ticket photo using on-device ML Kit OCR & Gemini AI to automatically sort your subjects by exam date with live countdowns.
+        </p>
+        <button
+          type="button"
+          onClick={() => setIsScannerOpen(true)}
+          className="w-full bg-[var(--paper)] hover:bg-[var(--paper-deep)] border-[1.5px] border-[var(--ink)] text-[var(--ink)] font-bold text-[12.5px] py-2.5 px-3 rounded-xl flex items-center justify-center gap-2 shadow-xs transition-all active:scale-95 cursor-pointer"
+        >
+          <CameraIcon className="w-4 h-4 text-[var(--ink)]" />
+          <span>Scan / Update Hall Ticket</span>
+        </button>
+
+        {Object.keys(timetable).length > 0 && (
+          <div className="mt-3 pt-2.5 border-t border-[var(--rule-strong)]">
+            <div className="flex items-center justify-between text-[11px] font-mono text-[var(--ink-soft)] mb-1.5">
+              <span className="font-bold uppercase tracking-wider text-[var(--ink)]">Synced Exams</span>
+              <span>{Object.keys(timetable).length} subjects scheduled</span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {Object.values(timetable).slice(0, 5).map((entry: any, i: number) => (
+                <span 
+                  key={i}
+                  className="font-mono text-[10px] bg-[var(--paper)] border border-[var(--rule-strong)] px-2 py-0.5 rounded text-[var(--ink)] font-semibold"
+                >
+                  {entry.subject_code}: {entry.exam_date}
+                </span>
+              ))}
+            </div>
+          </div>
         )}
       </div>
 
@@ -234,6 +299,16 @@ export default function Profile() {
         onSave={(newProf) => {
           setStudentProfile(newProf);
           setIsModalOpen(false);
+        }}
+      />
+
+      {/* Hall Ticket Scanner Modal */}
+      <HallTicketScannerModal
+        isOpen={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+        onSuccess={(scanResult) => {
+          loadTimetable();
+          loadStudentSpace();
         }}
       />
     </div>

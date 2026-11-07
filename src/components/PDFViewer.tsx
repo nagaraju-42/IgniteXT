@@ -22,6 +22,7 @@ export default function PDFViewer() {
 
   const [dataUri, setDataUri] = useState<string | null>(null);
   const [numPages, setNumPages] = useState<number | null>(null);
+  const [currentPage, setCurrentPage] = useState<number>(1);
   const [error, setError] = useState(false);
   const [scale, setScale] = useState<number>(1.0);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
@@ -32,6 +33,22 @@ export default function PDFViewer() {
 
   const viewportRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+
+  const saveLastRead = useCallback((pageToSave: number, totalPages?: number) => {
+    if (!file) return;
+    try {
+      localStorage.setItem('semkit_last_read', JSON.stringify({
+        file,
+        title: title || 'Lecture Notes',
+        page: pageToSave,
+        total: totalPages || numPages || 1,
+        timestamp: Date.now()
+      }));
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('semkit_last_read_updated'));
+      }
+    } catch(e) {}
+  }, [file, title, numPages]);
 
   // References for 120 FPS hardware-accelerated pan and zoom gestures
   const scaleRef = useRef<number>(1.0);
@@ -115,10 +132,21 @@ export default function PDFViewer() {
 
   function onDocumentLoadSuccess({ numPages }: { numPages: number }) {
     setNumPages(numPages);
-    // Initial center alignment
+    const targetPage = parseInt(searchParams.get('page') || '1', 10);
     setTimeout(() => {
-      centerDocument(1.0);
-    }, 50);
+      const estimatedPageHeight = basePageWidth * 1.414 + 16;
+      if (targetPage > 1 && numPages && targetPage <= numPages) {
+        const vpW = viewportRef.current?.clientWidth || viewportDims.width;
+        const initialX = Math.max(0, (vpW - basePageWidth) / 2);
+        const initialY = -((targetPage - 1) * estimatedPageHeight) + 16;
+        applyTransform({ x: initialX, y: initialY }, 1.0, true);
+        setCurrentPage(targetPage);
+        saveLastRead(targetPage, numPages);
+      } else {
+        centerDocument(1.0);
+        saveLastRead(1, numPages);
+      }
+    }, 60);
   }
 
   const handleOpenExternally = async () => {
@@ -327,6 +355,13 @@ export default function PDFViewer() {
 
     applyTransform({ x: clampedX, y: clampedY }, currentScale, true);
     setScale(Number(currentScale.toFixed(2)));
+
+    // Track and save current page position
+    const estimatedPageHeight = basePageWidth * 1.414 + 16;
+    const scrolledY = Math.max(0, -clampedY);
+    const curPage = Math.min(Math.max(1, Math.round(scrolledY / (estimatedPageHeight * currentScale)) + 1), numPages || 1);
+    setCurrentPage(curPage);
+    saveLastRead(curPage, numPages || 1);
   };
 
   // Button Zoom Handlers
@@ -409,6 +444,13 @@ export default function PDFViewer() {
 
         {/* Zoom Controls & Box-Shaped Fullscreen Button */}
         <div className="flex items-center gap-2 shrink-0">
+          {/* Page Counter Indicator */}
+          {numPages ? (
+            <div className="font-mono text-[10.5px] font-bold text-white/90 bg-white/10 px-2 py-1 rounded-md border border-white/15 shrink-0">
+              {currentPage} / {numPages}
+            </div>
+          ) : null}
+
           {/* Zoom Buttons with percentage indicator */}
           <div className="flex items-center bg-white/15 rounded-lg p-0.5 border border-white/20">
             <button 

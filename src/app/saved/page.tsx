@@ -18,6 +18,13 @@ export default function Saved() {
   const router = useRouter();
 
   useEffect(() => {
+    // 1. Instantly display downloaded files from local storage with 0ms delay
+    const immediate = (OfflineManager as any).getDownloadedFiles();
+    if (immediate && immediate.length > 0) {
+      setFiles(immediate.sort((a: any, b: any) => (b.downloadedAt || 0) - (a.downloadedAt || 0)));
+    }
+
+    // 2. Background sync
     loadFiles();
 
     const handleSync = () => loadFiles();

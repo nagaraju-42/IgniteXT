@@ -5,14 +5,31 @@ export const OfflineManager = {
    * Generates a safe local filename from a URL
    */
   getFileName(url: string) {
+    if (!url) return `file_${Date.now()}.pdf`;
     const parts = url.split('/');
-    return parts[parts.length - 1] || `file_${Date.now()}.pdf`;
+    let raw = parts[parts.length - 1] || `file_${Date.now()}.pdf`;
+    raw = raw.split('?')[0]; // strip query parameters
+    try {
+      raw = decodeURIComponent(raw);
+    } catch (e) {}
+    return raw;
   },
 
   /**
    * Checks if a file is already downloaded and saved offline
    */
   async isFileDownloaded(filename: string): Promise<boolean> {
+    const cleanFn = decodeURIComponent(filename || '').toLowerCase();
+    
+    // 1. Fast metadata check from localStorage
+    const metaFiles = this.getDownloadedFiles();
+    const inMeta = metaFiles.some((f: any) => {
+      const fName = decodeURIComponent(f.filename || '').toLowerCase();
+      return fName === cleanFn || f.filename === filename;
+    });
+    if (inMeta) return true;
+
+    // 2. Physical disk check
     try {
       await Filesystem.stat({
         path: `pdf_cache/${filename}`,
@@ -20,6 +37,16 @@ export const OfflineManager = {
       });
       return true;
     } catch {
+      try {
+        const decoded = decodeURIComponent(filename);
+        if (decoded !== filename) {
+          await Filesystem.stat({
+            path: `pdf_cache/${decoded}`,
+            directory: Directory.Data,
+          });
+          return true;
+        }
+      } catch {}
       return false;
     }
   },
@@ -28,6 +55,7 @@ export const OfflineManager = {
    * Downloads a PDF from a URL and saves it to the device's internal storage
    */
   async downloadFile(url: string, filename: string): Promise<string | null> {
+    const cleanFilename = decodeURIComponent(filename);
     try {
       // Ensure the cache directory exists
       try {
@@ -42,14 +70,42 @@ export const OfflineManager = {
 
       const result = await Filesystem.downloadFile({
         url: url,
-        path: `pdf_cache/${filename}`,
+        path: `pdf_cache/${cleanFilename}`,
         directory: Directory.Data,
       });
       
-      return result.path || null;
+      return result.path || `pdf_cache/${cleanFilename}`;
     } catch (error) {
-      console.error('Download failed:', error);
-      return null;
+      console.warn('Filesystem.downloadFile failed, trying fetch fallback:', error);
+      
+      // Resilient fallback: fetch blob and write to filesystem directly
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const blob = await res.blob();
+        
+        const base64Data = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const r = reader.result as string;
+            resolve(r.split(',')[1]);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+
+        const writeRes = await Filesystem.writeFile({
+          path: `pdf_cache/${cleanFilename}`,
+          data: base64Data,
+          directory: Directory.Data,
+          recursive: true
+        });
+
+        return writeRes.uri || `pdf_cache/${cleanFilename}`;
+      } catch (fetchErr) {
+        console.error('Fetch fallback also failed:', fetchErr);
+        return null;
+      }
     }
   },
 
@@ -57,10 +113,11 @@ export const OfflineManager = {
    * Opens the file in the native PDF viewer on Android/iOS, or new tab on web
    */
   async openNativeFile(filename: string): Promise<boolean> {
+    const cleanFn = decodeURIComponent(filename);
     try {
       const { Capacitor } = await import('@capacitor/core');
       if (Capacitor.getPlatform() === 'web') {
-        const uri = await this.getOfflineFileDataUri(filename);
+        const uri = await this.getOfflineFileDataUri(cleanFn);
         if (uri) {
            window.open(uri, '_blank');
            return true;
@@ -69,10 +126,18 @@ export const OfflineManager = {
       }
       
       const { FileOpener } = await import('@capacitor-community/file-opener');
-      const uriResult = await Filesystem.getUri({
-        path: `pdf_cache/${filename}`,
-        directory: Directory.Data
-      });
+      let uriResult;
+      try {
+        uriResult = await Filesystem.getUri({
+          path: `pdf_cache/${cleanFn}`,
+          directory: Directory.Data
+        });
+      } catch {
+        uriResult = await Filesystem.getUri({
+          path: `pdf_cache/${filename}`,
+          directory: Directory.Data
+        });
+      }
       await FileOpener.open({ filePath: uriResult.uri });
       return true;
     } catch (error) {
@@ -85,11 +150,20 @@ export const OfflineManager = {
    * Reads an offline file and returns it as a Base64 Data URI so it can be viewed in an iframe
    */
   async getOfflineFileDataUri(filename: string): Promise<string | null> {
+    const cleanFn = decodeURIComponent(filename);
     try {
-      const result = await Filesystem.readFile({
-        path: `pdf_cache/${filename}`,
-        directory: Directory.Data,
-      });
+      let result;
+      try {
+        result = await Filesystem.readFile({
+          path: `pdf_cache/${cleanFn}`,
+          directory: Directory.Data,
+        });
+      } catch {
+        result = await Filesystem.readFile({
+          path: `pdf_cache/${filename}`,
+          directory: Directory.Data,
+        });
+      }
       
       // On web, Capacitor might return a Blob directly
       if (result.data instanceof Blob) {
@@ -108,25 +182,32 @@ export const OfflineManager = {
    * Deletes an offline file
    */
   async deleteFile(filename: string) {
+    const cleanFn = decodeURIComponent(filename);
     try {
       await Filesystem.deleteFile({
-        path: `pdf_cache/${filename}`,
+        path: `pdf_cache/${cleanFn}`,
         directory: Directory.Data,
       });
     } catch (e) {
-      console.warn('Physical file deletion error:', e);
+      try {
+        await Filesystem.deleteFile({
+          path: `pdf_cache/${filename}`,
+          directory: Directory.Data,
+        });
+      } catch (e2) {}
     }
+    this.removeMetadata(cleanFn);
     this.removeMetadata(filename);
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('offline_files_changed', { detail: { filename, action: 'deleted' } }));
+      window.dispatchEvent(new CustomEvent('offline_files_changed', { detail: { filename: cleanFn, action: 'deleted' } }));
     }
     return true;
   },
 
   /**
-   * Metadata Management
+   * Metadata Management: Always gets immediately from localStorage
    */
-  getDownloadedFiles() {
+  getDownloadedFiles(): any[] {
     try {
       const data = localStorage.getItem('semkit_offline_files') || localStorage.getItem('ignitext_offline_files');
       return data ? JSON.parse(data) : [];
@@ -134,7 +215,6 @@ export const OfflineManager = {
       return [];
     }
   },
-
 
   /**
    * Smart subject resolver that maps files and titles to their full official Subject Names
@@ -202,7 +282,6 @@ export const OfflineManager = {
     if (/^20[2-3][0-9]$/.test(title)) {
       return `${title} Question Paper (PYQ)`;
     }
-    // If title contains mid papers or sem
     if (title.toLowerCase().includes('mid paper')) {
       return '2025 Mid Examination Papers';
     }
@@ -213,7 +292,10 @@ export const OfflineManager = {
     return title || 'Lecture Notes';
   },
 
-    async syncAndGetFiles() {
+  /**
+   * Resilient offline sync that NEVER deletes existing files and NEVER hangs on offline network
+   */
+  async syncAndGetFiles() {
     let files = this.getDownloadedFiles();
     try {
       const { Filesystem, Directory } = await import('@capacitor/filesystem');
@@ -221,70 +303,92 @@ export const OfflineManager = {
         path: 'pdf_cache',
         directory: Directory.Data
       });
+
       if (res && res.files) {
-        const diskNames = new Set(res.files.map(f => typeof f === 'string' ? f : f.name));
-        // Keep files that actually exist on disk
-        files = files.filter(f => diskNames.has(f.filename));
+        // Collect disk file names
+        const diskNamesMap = new Map<string, any>();
+        for (const df of res.files) {
+          const fn = typeof df === 'string' ? df : df.name;
+          diskNamesMap.set(fn, df);
+          try {
+            diskNamesMap.set(decodeURIComponent(fn), df);
+          } catch(e) {}
+        }
 
-        // Attempt to fetch DB metadata if online to guarantee 100% accurate subject names and titles
+        // Only query Supabase IF online with strict 2s timeout
         let dbItemsMap: Record<string, { title: string; subjectName: string }> = {};
-        try {
-          const { createClient } = await import('@/lib/supabase/client');
-          const supabase = createClient();
-          const { data: dbData } = await supabase
-            .from('content_items')
-            .select('file_url, title, type, exam_type, exam_year, subjects(name, code)');
-          if (dbData) {
-            dbData.forEach((item: any) => {
-              if (item.file_url) {
-                const fullUrl = item.file_url.toLowerCase();
-                const rawName = fullUrl.split('/').pop() || '';
-                let decodedName = '';
-                try { decodedName = decodeURIComponent(rawName); } catch(e) {}
+        if (typeof navigator !== 'undefined' && navigator.onLine) {
+          try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 2000);
 
-                let displayTitle = (item.title || '').replace(/^null\s+/, '').trim();
-                if (item.type === 'pyq' || item.exam_type || item.exam_year) {
-                  if (!displayTitle || /^\d{4}$/.test(displayTitle)) {
-                    displayTitle = `${item.exam_type ? item.exam_type + ' ' : ''}${item.exam_year || displayTitle || ''} Question Paper (PYQ)`.trim();
+            const { createClient } = await import('@/lib/supabase/client');
+            const supabase = createClient();
+            const { data: dbData } = await supabase
+              .from('content_items')
+              .select('file_url, title, type, exam_type, exam_year, subjects(name, code)')
+              .abortSignal(controller.signal);
+
+            clearTimeout(timeoutId);
+
+            if (dbData) {
+              dbData.forEach((item: any) => {
+                if (item.file_url) {
+                  const fullUrl = item.file_url.toLowerCase();
+                  const rawName = fullUrl.split('/').pop() || '';
+                  let decodedName = '';
+                  try { decodedName = decodeURIComponent(rawName); } catch(e) {}
+
+                  let displayTitle = (item.title || '').replace(/^null\s+/, '').trim();
+                  if (item.type === 'pyq' || item.exam_type || item.exam_year) {
+                    if (!displayTitle || /^\d{4}$/.test(displayTitle)) {
+                      displayTitle = `${item.exam_type ? item.exam_type + ' ' : ''}${item.exam_year || displayTitle || ''} Question Paper (PYQ)`.trim();
+                    }
                   }
+
+                  const subjectName = item.subjects?.name ? item.subjects.name.trim() : '';
+                  const info = { title: displayTitle, subjectName };
+
+                  if (rawName) dbItemsMap[rawName] = info;
+                  if (decodedName) dbItemsMap[decodedName] = info;
+                  dbItemsMap[fullUrl] = info;
                 }
-
-                const subjectName = item.subjects?.name ? item.subjects.name.trim() : '';
-                const info = { title: displayTitle, subjectName };
-
-                if (rawName) dbItemsMap[rawName] = info;
-                if (decodedName) dbItemsMap[decodedName] = info;
-                dbItemsMap[fullUrl] = info;
-              }
-            });
+              });
+            }
+          } catch(dbErr) {
+            // Silently ignore network abort or timeout - we are offline!
           }
-        } catch(dbErr) {}
+        }
 
-        // Re-process all files through DB map and smart heuristics
+        // Check each disk file: if it's not yet in our metadata list, add it!
         for (const diskFile of res.files) {
           const fname = typeof diskFile === 'string' ? diskFile : diskFile.name;
           if (!fname.toLowerCase().endsWith('.pdf')) continue;
 
-          let entry = files.find(f => f.filename === fname);
-          const fnameKey = fname.toLowerCase();
-          let decodedFname = '';
-          try { decodedFname = decodeURIComponent(fnameKey); } catch(e) {}
+          const cleanFname = decodeURIComponent(fname);
+          let entry = files.find((f: any) => 
+            f.filename === fname || 
+            f.filename === cleanFname ||
+            decodeURIComponent(f.filename || '').toLowerCase() === cleanFname.toLowerCase()
+          );
 
-          let dbMatch = dbItemsMap[fnameKey] || (decodedFname ? dbItemsMap[decodedFname] : null);
+          const fnameKey = fname.toLowerCase();
+          const cleanFnameKey = cleanFname.toLowerCase();
+          let dbMatch = dbItemsMap[fnameKey] || dbItemsMap[cleanFnameKey];
           if (!dbMatch) {
-            const foundKey = Object.keys(dbItemsMap).find(k => k.endsWith('/' + fnameKey) || k === fnameKey || (decodedFname && k === decodedFname));
+            const foundKey = Object.keys(dbItemsMap).find(k => k.endsWith('/' + fnameKey) || k === fnameKey || k === cleanFnameKey);
             if (foundKey) dbMatch = dbItemsMap[foundKey];
           }
 
           if (dbMatch) {
-            const finalTitle = dbMatch.title || entry?.title || fname;
+            const finalTitle = dbMatch.title || entry?.title || cleanFname;
             const finalSubject = dbMatch.subjectName || entry?.subjectName || 'General Notes';
             if (entry) {
               entry.title = finalTitle;
               entry.subjectName = finalSubject;
             } else {
               entry = {
-                filename: fname,
+                filename: cleanFname,
                 title: finalTitle,
                 subjectName: finalSubject,
                 sizeKb: typeof diskFile === 'object' && diskFile.size ? Math.round(diskFile.size / 1024) : 0,
@@ -293,8 +397,7 @@ export const OfflineManager = {
               files.push(entry);
             }
           } else {
-            // Apply smart subject resolver
-            const resolved = this.resolveSubjectAndTitle(fname, entry?.title, entry?.subjectName);
+            const resolved = this.resolveSubjectAndTitle(cleanFname, entry?.title, entry?.subjectName);
             if (entry) {
               if (!entry.subjectName || entry.subjectName === 'General Notes') {
                 entry.subjectName = resolved.subjectName;
@@ -302,7 +405,7 @@ export const OfflineManager = {
               entry.title = resolved.title || entry.title;
             } else {
               entry = {
-                filename: fname,
+                filename: cleanFname,
                 title: resolved.title,
                 subjectName: resolved.subjectName,
                 sizeKb: typeof diskFile === 'object' && diskFile.size ? Math.round(diskFile.size / 1024) : 0,
@@ -324,7 +427,11 @@ export const OfflineManager = {
 
   saveMetadata(filename: string, title: string, sizeKb?: number, subjectName?: string) {
     const files = this.getDownloadedFiles();
-    const existingIndex = files.findIndex((f: any) => f.filename === filename);
+    const cleanFn = decodeURIComponent(filename);
+    const existingIndex = files.findIndex((f: any) => 
+      f.filename === filename || 
+      decodeURIComponent(f.filename || '').toLowerCase() === cleanFn.toLowerCase()
+    );
     
     let inferredSubject = subjectName;
     let cleanTitle = title;
@@ -335,13 +442,13 @@ export const OfflineManager = {
     }
 
     if (!inferredSubject || inferredSubject === 'General Notes') {
-      const resolved = this.resolveSubjectAndTitle(filename, title, subjectName);
+      const resolved = this.resolveSubjectAndTitle(cleanFn, title, subjectName);
       inferredSubject = resolved.subjectName;
       cleanTitle = resolved.title;
     }
 
     const newEntry = { 
-      filename, 
+      filename: cleanFn, 
       title: cleanTitle || title, 
       subjectName: inferredSubject || 'General Notes',
       sizeKb: sizeKb || 0, 
@@ -356,13 +463,17 @@ export const OfflineManager = {
     localStorage.setItem('semkit_offline_files', JSON.stringify(files));
     localStorage.setItem('ignitext_offline_files', JSON.stringify(files));
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('offline_files_changed', { detail: { filename, action: 'saved' } }));
+      window.dispatchEvent(new CustomEvent('offline_files_changed', { detail: { filename: cleanFn, action: 'saved' } }));
     }
   },
 
   removeMetadata(filename: string) {
+    const cleanFn = decodeURIComponent(filename).toLowerCase();
     const files = this.getDownloadedFiles();
-    const filtered = files.filter((f: any) => f.filename !== filename);
+    const filtered = files.filter((f: any) => {
+      const fName = decodeURIComponent(f.filename || '').toLowerCase();
+      return fName !== cleanFn && f.filename !== filename;
+    });
     localStorage.setItem('semkit_offline_files', JSON.stringify(filtered));
     localStorage.setItem('ignitext_offline_files', JSON.stringify(filtered));
   }

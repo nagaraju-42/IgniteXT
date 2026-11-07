@@ -2,7 +2,16 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ChevronLeftIcon, ChevronDownIcon, FileTextIcon, HelpCircleIcon, Loader2Icon } from "lucide-react";
+import { 
+  ChevronLeftIcon, 
+  ChevronDownIcon, 
+  FileTextIcon, 
+  HelpCircleIcon, 
+  Loader2Icon,
+  DownloadIcon,
+  FolderDownIcon,
+  CheckCircle2Icon
+} from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { OfflineButton } from "@/components/OfflineButton";
 import { ReportButton } from "@/components/ReportButton";
@@ -46,6 +55,70 @@ function SubjectContent() {
   const [isPyqOpen, setIsPyqOpen] = useState(false);
   const [showFileSize, setShowFileSize] = useState(false);
   const [showDls, setShowDls] = useState(false);
+  const [isDownloadingPack, setIsDownloadingPack] = useState(false);
+  const [packProgress, setPackProgress] = useState<{ current: number; total: number; message: string } | null>(null);
+  const [isPackDownloaded, setIsPackDownloaded] = useState(false);
+
+  // Check if all notes in this subject are already downloaded
+  useEffect(() => {
+    async function checkPackStatus() {
+      const allFiles = [...notes, ...pyqs];
+      if (allFiles.length === 0) {
+        setIsPackDownloaded(false);
+        return;
+      }
+      let allDownloaded = true;
+      for (const item of allFiles) {
+        if (item.file_url) {
+          const fn = OfflineManager.getFileName(item.file_url);
+          const isDownloaded = await OfflineManager.isFileDownloaded(fn);
+          if (!isDownloaded) {
+            allDownloaded = false;
+            break;
+          }
+        }
+      }
+      setIsPackDownloaded(allDownloaded);
+    }
+    checkPackStatus();
+
+    const handleSync = () => checkPackStatus();
+    window.addEventListener('offline_files_changed', handleSync);
+    return () => window.removeEventListener('offline_files_changed', handleSync);
+  }, [notes, pyqs]);
+
+  const handleDownloadPack = async () => {
+    const allFiles = [...notes, ...pyqs].filter(f => f.file_url);
+    if (allFiles.length === 0) return;
+
+    setIsDownloadingPack(true);
+
+    for (let i = 0; i < allFiles.length; i++) {
+      const item = allFiles[i];
+      const fn = OfflineManager.getFileName(item.file_url);
+      setPackProgress({
+        current: i + 1,
+        total: allFiles.length,
+        message: item.title || `File ${i + 1}`
+      });
+
+      const already = await OfflineManager.isFileDownloaded(fn);
+      if (!already) {
+        const fullUrl = item.file_url.startsWith('http') 
+          ? item.file_url 
+          : `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL || DEFAULT_R2_URL}/${item.file_url}`;
+        await OfflineManager.downloadFile(fullUrl, fn);
+      }
+      OfflineManager.saveMetadata(fn, item.title, item.file_size_kb, subject?.name);
+    }
+
+    setIsDownloadingPack(false);
+    setIsPackDownloaded(true);
+    setPackProgress(null);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('offline_files_changed', { detail: { action: 'pack_saved' } }));
+    }
+  };
 
   const supabase = createClient();
 
@@ -282,6 +355,60 @@ function SubjectContent() {
 
       <div className="flex-1 overflow-y-auto px-[18px] py-5">
         
+        {/* 1-Click Offline Subject Pack */}
+        <div className="border-[2px] border-[var(--ink)] rounded-2xl p-4 bg-[#D7E600]/20 mb-6 shadow-[3px_3px_0_var(--ink)]">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 mb-1">
+                <FolderDownIcon className="w-4 h-4 text-[var(--ink)]" />
+                <span className="font-bold text-[13.5px] text-[var(--ink)]">
+                  1-Click Offline Subject Pack
+                </span>
+              </div>
+              <p className="text-[11.5px] text-[var(--ink-soft)] leading-snug">
+                Download all {notes.length + pyqs.length} notes & PYQs to study offline without internet
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleDownloadPack}
+              disabled={isDownloadingPack || (notes.length === 0 && pyqs.length === 0)}
+              className="bg-[var(--ink)] text-[var(--paper)] font-bold text-[12px] px-3.5 py-2.5 rounded-xl shadow-sm hover:translate-y-[1px] active:scale-95 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-50"
+            >
+              {isDownloadingPack ? (
+                <>
+                  <Loader2Icon className="w-4 h-4 animate-spin text-[#D7E600]" />
+                  <span>{packProgress?.current || 1}/{packProgress?.total || 1}</span>
+                </>
+              ) : isPackDownloaded ? (
+                <>
+                  <CheckCircle2Icon className="w-4 h-4 text-[#D7E600]" />
+                  <span>Downloaded</span>
+                </>
+              ) : (
+                <>
+                  <DownloadIcon className="w-4 h-4" />
+                  <span>Download All</span>
+                </>
+              )}
+            </button>
+          </div>
+          {isDownloadingPack && packProgress && (
+            <div className="mt-3 pt-2.5 border-t border-[var(--rule-strong)]">
+              <div className="flex justify-between text-[10.5px] font-mono text-[var(--ink-soft)] mb-1">
+                <span className="truncate pr-2">{packProgress.message}</span>
+                <span className="shrink-0">{Math.round((packProgress.current / packProgress.total) * 100)}%</span>
+              </div>
+              <div className="w-full bg-[var(--paper)] h-2 rounded-full overflow-hidden border border-[var(--rule)]">
+                <div 
+                  className="bg-[var(--ink)] h-full transition-all duration-300"
+                  style={{ width: `${(packProgress.current / packProgress.total) * 100}%` }}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Unit Notes Section */}
         <h2 className="font-semibold text-[13px] text-[var(--ink-soft)] uppercase tracking-wide mb-3 flex items-center gap-2">
           <FileTextIcon className="w-4 h-4 opacity-70" /> Lecture Notes
