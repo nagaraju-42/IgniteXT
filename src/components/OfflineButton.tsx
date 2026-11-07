@@ -12,9 +12,10 @@ interface OfflineButtonProps {
   fileUrl: string;
   title: string;
   sizeKb?: number;
+  subjectName?: string;
 }
 
-export function OfflineButton({ contentId, fileUrl, title, sizeKb }: OfflineButtonProps) {
+export function OfflineButton({ contentId, fileUrl, title, sizeKb, subjectName }: OfflineButtonProps) {
   const [status, setStatus] = useState<'checking' | 'not_downloaded' | 'downloading' | 'downloaded'>('checking');
   const [showTipJar, setShowTipJar] = useState(false);
   const filename = OfflineManager.getFileName(fileUrl);
@@ -25,6 +26,12 @@ export function OfflineButton({ contentId, fileUrl, title, sizeKb }: OfflineButt
 
   useEffect(() => {
     checkStatus();
+
+    const handleSync = () => {
+      checkStatus();
+    };
+    window.addEventListener('offline_files_changed', handleSync);
+    return () => window.removeEventListener('offline_files_changed', handleSync);
   }, [filename]);
 
   async function checkStatus() {
@@ -109,7 +116,7 @@ export function OfflineButton({ contentId, fileUrl, title, sizeKb }: OfflineButt
       
       const path = await OfflineManager.downloadFile(getOnlineUrl(), filename);
       if (path) {
-        OfflineManager.saveMetadata(filename, title, sizeKb);
+        OfflineManager.saveMetadata(filename, title, sizeKb, subjectName);
         setStatus('downloaded');
         setShowTipJar(true);
       } else {

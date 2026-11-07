@@ -113,11 +113,14 @@ export const OfflineManager = {
         path: `pdf_cache/${filename}`,
         directory: Directory.Data,
       });
-      this.removeMetadata(filename);
-      return true;
     } catch (e) {
-      return false;
+      console.warn('Physical file deletion error:', e);
     }
+    this.removeMetadata(filename);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('offline_files_changed', { detail: { filename, action: 'deleted' } }));
+    }
+    return true;
   },
 
   /**
@@ -125,29 +128,84 @@ export const OfflineManager = {
    */
   getDownloadedFiles() {
     try {
-      const data = localStorage.getItem('ignitext_offline_files');
+      const data = localStorage.getItem('semkit_offline_files') || localStorage.getItem('ignitext_offline_files');
       return data ? JSON.parse(data) : [];
     } catch {
       return [];
     }
   },
 
-  saveMetadata(filename: string, title: string, sizeKb?: number) {
+  async syncAndGetFiles() {
+    let files = this.getDownloadedFiles();
+    try {
+      const { Filesystem, Directory } = await import('@capacitor/filesystem');
+      const res = await Filesystem.readdir({
+        path: 'pdf_cache',
+        directory: Directory.Data
+      });
+      if (res && res.files) {
+        const diskNames = new Set(res.files.map(f => typeof f === 'string' ? f : f.name));
+        // Keep files that actually exist on disk
+        files = files.filter(f => diskNames.has(f.filename));
+        
+        // Add files that exist on disk but were missing from metadata
+        for (const diskFile of res.files) {
+          const fname = typeof diskFile === 'string' ? diskFile : diskFile.name;
+          if (fname.toLowerCase().endsWith('.pdf') && !files.some(f => f.filename === fname)) {
+            const cleanTitle = decodeURIComponent(fname.replace(/^[0-9]+_/, '').replace(/\.pdf$/i, '').replace(/[-_]/g, ' '));
+            files.push({
+              filename: fname,
+              title: cleanTitle || 'Saved Document',
+              sizeKb: typeof diskFile === 'object' && diskFile.size ? Math.round(diskFile.size / 1024) : 0,
+              downloadedAt: Date.now()
+            });
+          }
+        }
+        localStorage.setItem('semkit_offline_files', JSON.stringify(files));
+        localStorage.setItem('ignitext_offline_files', JSON.stringify(files));
+      }
+    } catch(e) {
+      // readdir might fail on web, fallback to metadata
+    }
+    return files;
+  },
+
+  saveMetadata(filename: string, title: string, sizeKb?: number, subjectName?: string) {
     const files = this.getDownloadedFiles();
     const existingIndex = files.findIndex((f: any) => f.filename === filename);
-    const newEntry = { filename, title, sizeKb: sizeKb || 0, downloadedAt: Date.now() };
+    
+    let inferredSubject = subjectName;
+    let cleanTitle = title;
+    if (!inferredSubject && title && title.includes(' - ')) {
+      const parts = title.split(' - ');
+      inferredSubject = parts[0].trim();
+      cleanTitle = parts.slice(1).join(' - ').trim();
+    }
+
+    const newEntry = { 
+      filename, 
+      title: cleanTitle || title, 
+      subjectName: inferredSubject || 'General Notes',
+      sizeKb: sizeKb || 0, 
+      downloadedAt: Date.now() 
+    };
     
     if (existingIndex >= 0) {
       files[existingIndex] = newEntry;
     } else {
       files.push(newEntry);
     }
+    localStorage.setItem('semkit_offline_files', JSON.stringify(files));
     localStorage.setItem('ignitext_offline_files', JSON.stringify(files));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('offline_files_changed', { detail: { filename, action: 'saved' } }));
+    }
   },
 
   removeMetadata(filename: string) {
     const files = this.getDownloadedFiles();
     const filtered = files.filter((f: any) => f.filename !== filename);
+    localStorage.setItem('semkit_offline_files', JSON.stringify(filtered));
     localStorage.setItem('ignitext_offline_files', JSON.stringify(filtered));
   }
 };

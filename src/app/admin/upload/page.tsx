@@ -91,7 +91,19 @@ export default function AdminUpload() {
       // 3. Insert metadata into Supabase content_items table
       const subject = subjects.find(s => s.id === subjectId);
       const titlePrefix = subject.code ? subject.code : subject.name;
-      const title = `${titlePrefix} ${materialType === 'notes' ? 'Notes' : 'PYQ'} - ${unitOrYear}`;
+      const baseTitle = `${titlePrefix} ${materialType === 'notes' ? 'Notes' : 'PYQ'} - ${unitOrYear}`;
+
+      // Check for existing items with identical title to strictly prevent duplicates
+      const { data: existingItems } = await supabase
+        .from('content_items')
+        .select('id, title')
+        .eq('subject_id', subjectId)
+        .ilike('title', `${baseTitle}%`);
+
+      let title = baseTitle;
+      if (existingItems && existingItems.length > 0) {
+        title = `${baseTitle} (Part ${existingItems.length + 1})`;
+      }
 
       const { data: userProfile } = await supabase.from('profiles').select('role').eq('id', userId).single();
       const initialStatus = userProfile?.role === 'superadmin' ? 'published' : 'draft';

@@ -31,7 +31,27 @@ export function HeaderBar() {
   useEffect(() => {
     loadProfile();
 
-    const handleProfileChange = () => loadProfile();
+    const handleProfileChange = async () => {
+      loadProfile();
+      try {
+        let roll = 'Guest';
+        let branch = 'General';
+        let sem = 1;
+        const saved = localStorage.getItem('semkit_profile') || localStorage.getItem('ignitext_profile');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.roll) roll = parsed.roll;
+          if (parsed.branch_code) branch = parsed.branch_code;
+          if (parsed.sem) sem = parsed.sem;
+        }
+        await channel.track({
+          roll: roll,
+          branch: branch,
+          sem: sem,
+          online_at: new Date().toISOString(),
+        });
+      } catch(e) {}
+    };
     window.addEventListener('semkit_profile_changed', handleProfileChange);
     window.addEventListener('ignitext_profile_changed', handleProfileChange);
 
@@ -58,10 +78,24 @@ export function HeaderBar() {
         })
         .subscribe(async (status) => {
           if (status === 'SUBSCRIBED') {
-            const currentProfile = profile;
+            // Read latest profile synchronously from storage so we never send 'guest'
+            let roll = 'Guest';
+            let branch = 'General';
+            let sem = 1;
+            try {
+              const saved = localStorage.getItem('semkit_profile') || localStorage.getItem('ignitext_profile');
+              if (saved) {
+                const parsed = JSON.parse(saved);
+                if (parsed.roll) roll = parsed.roll;
+                if (parsed.branch_code) branch = parsed.branch_code;
+                if (parsed.sem) sem = parsed.sem;
+              }
+            } catch(e) {}
+
             await channel.track({
-              roll: currentProfile?.roll || 'guest',
-              branch: currentProfile?.branch_code || 'all',
+              roll: roll,
+              branch: branch,
+              sem: sem,
               online_at: new Date().toISOString(),
             });
           }

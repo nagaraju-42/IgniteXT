@@ -32,12 +32,13 @@ function LiveRadarPage() {
       
       for (const id in state) {
         state[id].forEach((presence: any) => {
-          if (!presence.is_anonymous && presence.roll) {
-            students.push({
-              ...presence,
-              clientId: id
-            });
-          }
+          students.push({
+            roll: presence.roll && presence.roll !== 'guest' ? presence.roll : 'Active Student',
+            branch: presence.branch || 'CSE',
+            sem: presence.sem || 7,
+            online_at: presence.online_at || new Date().toISOString(),
+            clientId: id
+          });
         });
       }
       

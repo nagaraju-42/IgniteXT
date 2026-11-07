@@ -150,7 +150,27 @@ function SubjectContent() {
           if (!isMounted) return;
 
           if (contentData) {
-            setNotes(contentData.filter((c: any) => c.type === 'note'));
+            const rawNotes = contentData.filter((c: any) => c.type === 'note');
+            // Strictly eliminate confusing duplicate titles by appending Part 1, Part 2, etc.
+            const titleCounts: Record<string, number> = {};
+            rawNotes.forEach((n: any) => {
+              titleCounts[n.title] = (titleCounts[n.title] || 0) + 1;
+            });
+            const titleOccurrences: Record<string, number> = {};
+            const cleanNotes = rawNotes.map((n: any) => {
+              if (titleCounts[n.title] > 1) {
+                titleOccurrences[n.title] = (titleOccurrences[n.title] || 0) + 1;
+                return {
+                  ...n,
+                  displayTitle: `${n.title} (Part ${titleOccurrences[n.title]})`
+                };
+              }
+              return {
+                ...n,
+                displayTitle: n.title
+              };
+            });
+            setNotes(cleanNotes);
             setPyqs(contentData.filter((c: any) => c.type === 'pyq').sort((a: any, b: any) => (b.exam_year || 0) - (a.exam_year || 0)));
           }
         }
@@ -291,7 +311,7 @@ function SubjectContent() {
                           className="flex-1 min-w-0 cursor-pointer"
                           onClick={() => handleOpenFile(note.file_url, `${subject.name} - ${note.title}`)}
                         >
-                          <div className="font-semibold text-[13px] leading-snug break-words text-[var(--ink)]">{note.title.replace(/^null\s/, '')}</div>
+                          <div className="font-semibold text-[13px] leading-snug break-words text-[var(--ink)]">{(note.displayTitle || note.title).replace(/^null\s/, '')}</div>
                           {(showFileSize || showDls) && (
                             <div className="font-mono text-[10px] text-[var(--ink-soft)] mt-1 flex gap-2">
                               {showFileSize && note.file_size_kb && (
@@ -304,7 +324,7 @@ function SubjectContent() {
                           )}
                         </div>
                         <div className="flex flex-col gap-1 items-center shrink-0">
-                          <OfflineButton contentId={note.id} fileUrl={note.file_url} title={`${subject?.name || 'Subject'} - ${note.title}`} />
+                          <OfflineButton contentId={note.id} fileUrl={note.file_url} title={note.title} sizeKb={note.file_size_kb} subjectName={subject?.name} />
                           <ReportButton contentId={note.id} />
                         </div>
                       </div>
@@ -354,7 +374,7 @@ function SubjectContent() {
                       )}
                     </div>
                     <div className="flex flex-col gap-1 items-center shrink-0">
-                      <OfflineButton contentId={note.id} fileUrl={note.file_url} title={`${subject?.name || 'Subject'} - ${note.title}`} />
+                      <OfflineButton contentId={note.id} fileUrl={note.file_url} title={note.title} sizeKb={note.file_size_kb} subjectName={subject?.name} />
                       <ReportButton contentId={note.id} />
                     </div>
                   </div>
@@ -422,7 +442,7 @@ function SubjectContent() {
                       </div>
                     </div>
                     <div className="flex flex-col gap-1 items-center shrink-0">
-                      <OfflineButton contentId={pyq.id} fileUrl={pyq.file_url} title={`${subject?.name || 'Subject'} - ${pyq.title}`} />
+                      <OfflineButton contentId={pyq.id} fileUrl={pyq.file_url} title={pyq.title} sizeKb={pyq.file_size_kb} subjectName={subject?.name} />
                       <ReportButton contentId={pyq.id} />
                     </div>
                   </div>
