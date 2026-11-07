@@ -23,14 +23,22 @@ export default function SupportTickets() {
       const { data: prof } = await supabase.from('profiles').select('role').eq('id', user.id).single();
       if (!prof || (prof.role !== 'superadmin' && prof.role !== 'community_admin')) return router.push('/community/login');
 
-      // Fetch tickets with user info (if they were logged in)
-      const { data } = await supabase
+      // Fetch tickets with robust fallback
+      let { data, error } = await supabase
         .from('support_tickets')
         .select(`
           *,
           profiles (full_name, email, role)
         `)
         .order('created_at', { ascending: false });
+
+      if (error || !data) {
+        const fallback = await supabase
+          .from('support_tickets')
+          .select('*')
+          .order('created_at', { ascending: false });
+        if (fallback.data) data = fallback.data;
+      }
 
       if (data) setTickets(data);
       setLoading(false);
@@ -98,12 +106,16 @@ export default function SupportTickets() {
         {ticket.message}
       </p>
 
-      {ticket.profiles && (
-        <div className="text-[11px] text-[var(--ink-soft)] font-medium flex flex-col">
-          <span>From: {ticket.profiles.full_name}</span>
-          <span className="font-mono text-[10px]">{ticket.profiles.email}</span>
-        </div>
-      )}
+      <div className="text-[11px] text-[var(--ink-soft)] font-medium flex flex-col">
+        {ticket.profiles ? (
+          <>
+            <span>From: {ticket.profiles.full_name}</span>
+            <span className="font-mono text-[10px]">{ticket.profiles.email}</span>
+          </>
+        ) : (
+          <span className="font-mono text-[10px] text-[var(--ink-faint)]">From: Student / Anonymous App User</span>
+        )}
+      </div>
 
       <div className="flex gap-2 mt-1">
         {ticket.status !== 'open' && (

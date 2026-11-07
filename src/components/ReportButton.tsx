@@ -30,6 +30,13 @@ export function ReportButton({ contentId }: ReportButtonProps) {
       reason: reason
     });
 
+    await supabase.from('support_tickets').insert({
+      user_id: user?.id || null,
+      category: 'content',
+      message: `[Content Flag: ${reason}] Flagged Content ID: ${contentId}`,
+      status: 'open'
+    }).catch(() => {});
+
     setLoading(false);
     setSuccess(true);
     setTimeout(() => {

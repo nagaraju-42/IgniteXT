@@ -44,8 +44,40 @@ function SubjectContent() {
   const [loading, setLoading] = useState(true);
   const [initChecked, setInitChecked] = useState(false);
   const [isPyqOpen, setIsPyqOpen] = useState(false);
+  const [showFileSize, setShowFileSize] = useState(false);
+  const [showDls, setShowDls] = useState(false);
 
   const supabase = createClient();
+
+  useEffect(() => {
+    try {
+      const fsVal = localStorage.getItem('semkit_show_file_size');
+      if (fsVal !== null) setShowFileSize(fsVal === 'true');
+      const dlVal = localStorage.getItem('semkit_show_download_counts');
+      if (dlVal !== null) setShowDls(dlVal === 'true');
+    } catch(e) {}
+
+    async function loadDisplaySettings() {
+      try {
+        const { data } = await supabase.from('platform_settings').select('key, value').in('key', ['show_file_size', 'show_download_counts']);
+        if (data) {
+          const fsRow = data.find((r: any) => r.key === 'show_file_size');
+          const dlRow = data.find((r: any) => r.key === 'show_download_counts');
+          if (fsRow) {
+            const val = fsRow.value === 'true';
+            setShowFileSize(val);
+            try { localStorage.setItem('semkit_show_file_size', String(val)); } catch(e) {}
+          }
+          if (dlRow) {
+            const val = dlRow.value === 'true';
+            setShowDls(val);
+            try { localStorage.setItem('semkit_show_download_counts', String(val)); } catch(e) {}
+          }
+        }
+      } catch(e) {}
+    }
+    loadDisplaySettings();
+  }, [supabase]);
 
   const handleBack = () => {
     if (typeof window !== 'undefined' && window.history.length > 1) {
@@ -259,10 +291,17 @@ function SubjectContent() {
                           className="flex-1 min-w-0 cursor-pointer"
                           onClick={() => handleOpenFile(note.file_url, `${subject.name} - ${note.title}`)}
                         >
-                          <div className="font-semibold text-[13.5px] truncate">{note.title.replace(/^null\s/, '')}</div>
-                          <div className="font-mono text-[10px] text-[var(--ink-soft)] mt-0.5 flex gap-2">
-                            <span>{note.file_size_kb ? `${(note.file_size_kb / 1024).toFixed(1)} MB` : 'PDF'}</span>
-                          </div>
+                          <div className="font-semibold text-[13px] leading-snug break-words text-[var(--ink)]">{note.title.replace(/^null\s/, '')}</div>
+                          {(showFileSize || showDls) && (
+                            <div className="font-mono text-[10px] text-[var(--ink-soft)] mt-1 flex gap-2">
+                              {showFileSize && note.file_size_kb && (
+                                <span>{(note.file_size_kb / 1024).toFixed(1)} MB</span>
+                              )}
+                              {showDls && (
+                                <span>{note.download_count || 0} DLs</span>
+                              )}
+                            </div>
+                          )}
                         </div>
                         <div className="flex flex-col gap-1 items-center shrink-0">
                           <OfflineButton contentId={note.id} fileUrl={note.file_url} title={`${subject?.name || 'Subject'} - ${note.title}`} />
@@ -302,10 +341,17 @@ function SubjectContent() {
                       className="flex-1 min-w-0 cursor-pointer"
                       onClick={() => handleOpenFile(note.file_url, `${subject.name} - ${note.title}`)}
                     >
-                      <div className="font-semibold text-[13.5px] truncate">{note.title.replace(/^null\s/, '')}</div>
-                      <div className="font-mono text-[10px] text-[var(--ink-soft)] mt-0.5 flex gap-2">
-                        <span>{note.file_size_kb ? `${(note.file_size_kb / 1024).toFixed(1)} MB` : 'PDF'}</span>
-                      </div>
+                      <div className="font-semibold text-[13px] leading-snug break-words text-[var(--ink)]">{note.title.replace(/^null\s/, '')}</div>
+                      {(showFileSize || showDls) && (
+                        <div className="font-mono text-[10px] text-[var(--ink-soft)] mt-1 flex gap-2">
+                          {showFileSize && note.file_size_kb && (
+                            <span>{(note.file_size_kb / 1024).toFixed(1)} MB</span>
+                          )}
+                          {showDls && (
+                            <span>{note.download_count || 0} DLs</span>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <div className="flex flex-col gap-1 items-center shrink-0">
                       <OfflineButton contentId={note.id} fileUrl={note.file_url} title={`${subject?.name || 'Subject'} - ${note.title}`} />
@@ -364,10 +410,15 @@ function SubjectContent() {
                       className="flex-1 min-w-0 cursor-pointer"
                       onClick={() => handleOpenFile(pyq.file_url, `${subject.name} - ${pyq.title}`)}
                     >
-                      <div className="font-semibold text-[13.5px] truncate text-[var(--ink)]">{pyq.title.replace(/^null\s/, '')}</div>
-                      <div className="font-mono text-[10px] text-[var(--ink-soft)] mt-0.5 uppercase flex gap-1.5 items-center">
+                      <div className="font-semibold text-[13px] leading-snug break-words text-[var(--ink)]">{pyq.title.replace(/^null\s/, '')}</div>
+                      <div className="font-mono text-[10px] text-[var(--ink-soft)] mt-1 uppercase flex gap-1.5 items-center flex-wrap">
                         <span className="bg-[var(--ink)] text-[var(--paper)] px-1.5 py-0.5 rounded-[4px] font-extrabold">{pyq.exam_type || 'EXAM'} {pyq.exam_year || ''}</span>
-                        <span>• {pyq.file_size_kb ? `${(pyq.file_size_kb / 1024).toFixed(1)} MB` : 'PDF'}</span>
+                        {showFileSize && pyq.file_size_kb && (
+                          <span>• {(pyq.file_size_kb / 1024).toFixed(1)} MB</span>
+                        )}
+                        {showDls && (
+                          <span>• {pyq.download_count || 0} DLs</span>
+                        )}
                       </div>
                     </div>
                     <div className="flex flex-col gap-1 items-center shrink-0">

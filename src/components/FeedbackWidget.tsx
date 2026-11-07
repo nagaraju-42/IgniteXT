@@ -2,20 +2,42 @@
 
 import { useState } from 'react';
 import { MessageSquareIcon, XIcon, SendIcon } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
 
 export function FeedbackWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [submitted, setSubmitted] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [loading, setLoading] = useState(false);
+  const supabase = createClient();
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!feedback.trim()) return;
-    
-    // In the future, we can send this directly to the Supabase database
-    console.log("Feedback submitted:", feedback);
+    setLoading(true);
+
+    try {
+      let roll = '';
+      try {
+        const saved = localStorage.getItem('semkit_profile') || localStorage.getItem('ignitext_profile');
+        if (saved) roll = JSON.parse(saved).roll;
+      } catch (err) {}
+
+      const { data: { user } } = await supabase.auth.getUser();
+
+      await supabase.from('support_tickets').insert({
+        user_id: user?.id || null,
+        category: 'general',
+        message: `[Floating Feedback] ${feedback.trim()} (User: ${roll || 'Anonymous'})`,
+        status: 'open',
+      });
+    } catch (err) {
+      console.error("Error submitting ticket:", err);
+    }
+
+    setLoading(false);
     setSubmitted(true);
-    
     setTimeout(() => {
       setIsOpen(false);
       setSubmitted(false);

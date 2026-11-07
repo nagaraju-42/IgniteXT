@@ -22,14 +22,27 @@ export default function SupportPage() {
     try {
       let roll = '';
       try {
-        const saved = localStorage.getItem('ignitext_profile');
+        const saved = localStorage.getItem('semkit_profile') || localStorage.getItem('ignitext_profile');
         if (saved) roll = JSON.parse(saved).roll;
       } catch (err) {}
 
-      await supabase.from('content_requests').insert({
-        request_text: `[${category.toUpperCase()}] ${message.trim()} (Contact: ${email || roll || 'Anonymous'})`,
+      const { data: { user } } = await supabase.auth.getUser();
+
+      // Insert directly into support_tickets table
+      await supabase.from('support_tickets').insert({
+        user_id: user?.id || null,
+        category: category,
+        message: `${message.trim()} (Contact: ${email || roll || 'Anonymous'})`,
         status: 'open',
-      }).catch(() => {});
+      });
+
+      // Also track in content_requests if category is content
+      if (category === 'content') {
+        await supabase.from('content_requests').insert({
+          request_text: `[${category.toUpperCase()}] ${message.trim()} (Contact: ${email || roll || 'Anonymous'})`,
+          status: 'open',
+        }).catch(() => {});
+      }
     } catch (err) {}
 
     setLoading(false);

@@ -170,16 +170,7 @@ export default function CommunityAdminDashboard() {
             <div className="text-[10.5px] text-[var(--ink-soft)]">Manage courses</div>
           </div>
         </Link>
-        <Link href="/admin/live" className="border-[1.5px] border-green-500 rounded-xl p-3.5 bg-green-500/5 hover:bg-green-500/10 transition-colors flex flex-col gap-2">
-          <div className="w-8 h-8 rounded-lg bg-green-500 text-white flex items-center justify-center">
-            <ActivityIcon className="w-4 h-4" />
-          </div>
-          <div>
-            <div className="font-bold text-[13px] text-green-700">Live Radar</div>
-            <div className="text-[10.5px] text-green-600/80">Active students</div>
-          </div>
-        </Link>
-        <Link href="/admin/tickets" className="border-[1.5px] border-[var(--rule-strong)] rounded-xl p-3.5 bg-[var(--paper)] hover:bg-[var(--paper-deep)] transition-colors flex flex-col gap-2">
+                <Link href="/admin/tickets" className="border-[1.5px] border-[var(--rule-strong)] rounded-xl p-3.5 bg-[var(--paper)] hover:bg-[var(--paper-deep)] transition-colors flex flex-col gap-2">
           <div className="w-8 h-8 rounded-lg bg-[var(--paper-deep)] text-[var(--ink-soft)] flex items-center justify-center">
             <TicketIcon className="w-4 h-4" />
           </div>

@@ -92,6 +92,36 @@ export default function PlatformSettings() {
         <form onSubmit={handleSave} className="flex flex-col gap-6">
           
           <div className="border-[1.5px] border-[var(--rule-strong)] rounded-xl p-5 bg-[var(--paper-card)] flex flex-col gap-4">
+            <h2 className="font-bold text-[16px]">Note Cards Display</h2>
+            
+            <div className="flex items-center justify-between border-b border-[var(--rule)] pb-4">
+              <div>
+                <label className="block text-[13px] font-semibold text-[var(--ink)]">Show File Size (MB)</label>
+                <p className="text-[11px] text-[var(--ink-soft)]">When OFF, file storage size (e.g. 27.9 MB) is completely hidden on note cards.</p>
+              </div>
+              <input 
+                type="checkbox" 
+                checked={settings.show_file_size === 'true'}
+                onChange={e => setSettings({...settings, show_file_size: e.target.checked ? 'true' : 'false'})}
+                className="w-5 h-5 accent-[var(--ink)] cursor-pointer" 
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="block text-[13px] font-semibold text-[var(--ink)]">Show Download Count (DLs)</label>
+                <p className="text-[11px] text-[var(--ink-soft)]">When OFF, download counts (e.g. 0 DLs) are completely hidden on note cards.</p>
+              </div>
+              <input 
+                type="checkbox" 
+                checked={settings.show_download_counts === 'true'}
+                onChange={e => setSettings({...settings, show_download_counts: e.target.checked ? 'true' : 'false'})}
+                className="w-5 h-5 accent-[var(--ink)] cursor-pointer" 
+              />
+            </div>
+          </div>
+
+          <div className="border-[1.5px] border-[var(--rule-strong)] rounded-xl p-5 bg-[var(--paper-card)] flex flex-col gap-4">
             <h2 className="font-bold text-[16px]">General</h2>
             
             <div className="flex items-center justify-between">
