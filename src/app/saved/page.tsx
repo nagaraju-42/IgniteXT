@@ -96,14 +96,14 @@ export default function Saved() {
     }
   };
 
-  // Group downloaded files by Subject Name
+  // Group downloaded files by Full Official Subject Name
   const groupedFiles: Record<string, any[]> = {};
   files.forEach(file => {
-    let subj = file.subjectName;
-    if (!subj && file.title && file.title.includes(' - ')) {
-      const parts = file.title.split(' - ');
-      subj = parts[0].trim();
-      file.title = parts.slice(1).join(' - ').trim();
+    let subj = (file.subjectName || '').trim();
+    if (!subj || subj === 'General Notes') {
+      const resolved = (OfflineManager as any).resolveSubjectAndTitle(file.filename, file.title, file.subjectName);
+      subj = resolved.subjectName;
+      file.title = resolved.title;
     }
     subj = subj || 'General Notes';
     if (!groupedFiles[subj]) groupedFiles[subj] = [];
@@ -186,7 +186,9 @@ export default function Saved() {
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="font-semibold text-[13px] leading-snug break-words text-[var(--ink)]">
-                              {file.title}
+                              {file.title && subjectName && file.title.toLowerCase().startsWith(subjectName.toLowerCase() + ' - ')
+                                ? file.title.substring(subjectName.length + 3).trim()
+                                : file.title}
                             </div>
                             <div className="font-mono text-[10px] text-[var(--ink-soft)] mt-0.5 flex items-center gap-2">
                               <span className="inline-flex items-center gap-1 text-emerald-700 font-bold">
