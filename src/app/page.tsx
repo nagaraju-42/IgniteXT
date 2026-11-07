@@ -7,19 +7,13 @@ import {
   GridIcon,
   BookIcon,
   ChevronRightIcon,
-  ChevronDownIcon,
   Loader2Icon,
   AlertCircleIcon,
   SparklesIcon,
-  BookOpenCheckIcon,
-  XIcon,
-  CheckCircle2Icon,
-  ClockIcon,
-  FlameIcon
+  XIcon
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { OnboardingModal, StudentProfile } from '@/components/OnboardingModal';
-import { getExamTimetable, TimetableEntry } from '@/lib/hallTicketScanner';
 import type { Subject } from '@/lib/types';
 
 interface LastReadState {
@@ -33,12 +27,10 @@ interface LastReadState {
 export default function Home() {
   const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [timetable, setTimetable] = useState<Record<string, TimetableEntry>>({});
   const [lastRead, setLastRead] = useState<LastReadState | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [isOffline, setIsOffline] = useState<boolean>(false);
-  const [showCompleted, setShowCompleted] = useState<boolean>(false);
 
   const supabase = createClient();
 
@@ -69,27 +61,6 @@ export default function Home() {
         setLastRead(null);
       }
     } catch (e) {}
-  };
-
-  const loadTimetable = async () => {
-    // 1. Load instantly from local storage
-    const local = getExamTimetable();
-    setTimetable(local);
-
-    // 2. Fetch official timetable from Supabase platform_settings
-    if (typeof navigator !== 'undefined' && navigator.onLine) {
-      try {
-        const { data } = await supabase
-          .from('platform_settings')
-          .select('value')
-          .eq('key', 'exam_timetable')
-          .single();
-        if (data && data.value) {
-          const parsed = JSON.parse(data.value);
-          setTimetable(prev => ({ ...parsed, ...prev }));
-        }
-      } catch (err) {}
-    }
   };
 
   const fetchSubjectsForSpace = async (regId: string, branchId: string, sem: number) => {
@@ -124,7 +95,6 @@ export default function Home() {
     window.addEventListener('offline', setOff);
 
     loadLastRead();
-    loadTimetable();
 
     const currentProfile = loadProfile();
 
@@ -144,12 +114,10 @@ export default function Home() {
     };
 
     const handleLastReadChange = () => loadLastRead();
-    const handleTimetableChange = () => loadTimetable();
 
     window.addEventListener('semkit_profile_changed', handleProfileChange);
     window.addEventListener('ignitext_profile_changed', handleProfileChange);
     window.addEventListener('semkit_last_read_updated', handleLastReadChange);
-    window.addEventListener('semkit_timetable_updated', handleTimetableChange);
 
     return () => {
       window.removeEventListener('online', setOnline);
@@ -157,60 +125,8 @@ export default function Home() {
       window.removeEventListener('semkit_profile_changed', handleProfileChange);
       window.removeEventListener('ignitext_profile_changed', handleProfileChange);
       window.removeEventListener('semkit_last_read_updated', handleLastReadChange);
-      window.removeEventListener('semkit_timetable_updated', handleTimetableChange);
     };
   }, []);
-
-  // Compute live exam status and countdown for a subject
-  const getSubjectExam = (sub: Subject) => {
-    const codeKey = (sub.code || '').toUpperCase().trim();
-    const nameKey = (sub.name || '').toLowerCase().trim();
-    const entry = timetable[codeKey] || timetable[nameKey] || null;
-
-    const examDateStr = entry?.exam_date || (sub as any).exam_date;
-    if (!examDateStr) return null;
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const examDate = new Date(examDateStr.includes('T') ? examDateStr : `${examDateStr}T00:00:00`);
-    const diffTime = examDate.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    if (diffDays < 0) {
-      return { status: 'completed', text: 'Exam Finished', diffDays, date: examDateStr };
-    }
-    if (diffDays === 0) {
-      return { status: 'today', text: '🔥 Exam Today!', diffDays, date: examDateStr };
-    }
-    if (diffDays === 1) {
-      return { status: 'tomorrow', text: '⏳ Exam Tomorrow', diffDays, date: examDateStr };
-    }
-    return { status: 'upcoming', text: `⏳ Exam in ${diffDays} Days`, diffDays, date: examDateStr };
-  };
-
-  // Group and sort subjects: upcoming exam is #1 at the top!
-  const activeSubjectItems: { sub: Subject; exam: ReturnType<typeof getSubjectExam> }[] = [];
-  const completedSubjectItems: { sub: Subject; exam: ReturnType<typeof getSubjectExam> }[] = [];
-
-  subjects.forEach(sub => {
-    const exam = getSubjectExam(sub);
-    if (exam && exam.status === 'completed') {
-      completedSubjectItems.push({ sub, exam });
-    } else {
-      activeSubjectItems.push({ sub, exam });
-    }
-  });
-
-  // Sort active subjects so nearest upcoming exam is always #1 at the top
-  activeSubjectItems.sort((a, b) => {
-    if (a.exam && !b.exam) return -1;
-    if (!a.exam && b.exam) return 1;
-    if (a.exam && b.exam) {
-      return a.exam.diffDays - b.exam.diffDays;
-    }
-    return a.sub.name.localeCompare(b.sub.name);
-  });
 
   return (
     <div className="px-[18px] pt-4 pb-8">
@@ -304,7 +220,7 @@ export default function Home() {
             <h2 className="font-bold text-[14.5px] text-[var(--ink)]">Personalize Your Space</h2>
           </div>
           <p className="text-[12px] text-[var(--ink-soft)] mb-3 leading-relaxed">
-            Set up your profile once or scan your hall ticket to view your exact subjects and live exam countdowns automatically.
+            Set up your profile once with your hall ticket, regulation, branch & semester to view your exact subjects automatically.
           </p>
           <button
             onClick={() => setIsModalOpen(true)}
@@ -339,9 +255,9 @@ export default function Home() {
               Loading semester subjects...
             </p>
           </div>
-        ) : profile && activeSubjectItems.length > 0 ? (
+        ) : profile && subjects.length > 0 ? (
           <div className="flex flex-col gap-2.5">
-            {activeSubjectItems.map(({ sub, exam }) => (
+            {subjects.map((sub) => (
               <Link
                 key={sub.id}
                 href={`/subject?id=${sub.id}`}
@@ -351,28 +267,12 @@ export default function Home() {
                   <div className="font-bold text-[14px] text-[var(--ink)] leading-snug truncate group-hover:underline">
                     {sub.name}
                   </div>
-                  <div className="font-mono text-[11px] text-[var(--ink-soft)] mt-1.5 flex items-center flex-wrap gap-2">
+                  <div className="font-mono text-[11px] text-[var(--ink-soft)] mt-1.5 flex items-center gap-2">
                     <span className="bg-[var(--paper-deep)] border border-[var(--rule-strong)] px-2 py-0.5 rounded text-[var(--ink)] font-semibold text-[10px]">
                       {sub.code || 'SUB'}
                     </span>
                     <span>·</span>
                     <span>{sub.total_units || 5} units</span>
-
-                    {/* Live Exam Countdown Badge */}
-                    {exam && (
-                      <>
-                        <span>·</span>
-                        <span className={`px-2 py-0.5 rounded-md font-bold text-[10px] inline-flex items-center gap-1 ${
-                          exam.status === 'today'
-                            ? 'bg-rose-500 text-white animate-pulse'
-                            : exam.status === 'tomorrow'
-                            ? 'bg-[#D7E600] text-[var(--ink)] font-extrabold border border-[var(--ink)]'
-                            : 'bg-[#D7E600]/25 text-[var(--ink)] border border-[var(--rule-strong)]'
-                        }`}>
-                          {exam.text}
-                        </span>
-                      </>
-                    )}
                   </div>
                 </div>
                 <div className="w-9 h-9 rounded-xl bg-[var(--paper-deep)] border border-[var(--rule-strong)] flex items-center justify-center group-hover:bg-[var(--ink)] group-hover:text-[var(--paper)] transition-colors shrink-0">
@@ -380,54 +280,6 @@ export default function Home() {
                 </div>
               </Link>
             ))}
-
-            {/* Collapsed Completed Exams Section */}
-            {completedSubjectItems.length > 0 && (
-              <div className="mt-2 border-[1.5px] border-[var(--rule-strong)] rounded-xl overflow-hidden bg-[var(--paper-deep)]">
-                <button
-                  type="button"
-                  onClick={() => setShowCompleted(!showCompleted)}
-                  className="w-full p-3 flex items-center justify-between text-left hover:bg-[var(--rule)] transition-colors cursor-pointer select-none"
-                >
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2Icon className="w-4 h-4 text-emerald-600" />
-                    <span className="font-bold text-[12px] text-[var(--ink)]">
-                      Completed Exams ({completedSubjectItems.length})
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10.5px] text-[var(--ink-soft)]">
-                      {showCompleted ? 'Hide' : 'Show'}
-                    </span>
-                    <ChevronDownIcon className={`w-4 h-4 text-[var(--ink-soft)] transition-transform duration-200 ${showCompleted ? 'rotate-180' : ''}`} />
-                  </div>
-                </button>
-
-                {showCompleted && (
-                  <div className="p-3 pt-0 flex flex-col gap-2 border-t border-[var(--rule)] bg-[var(--paper)]">
-                    {completedSubjectItems.map(({ sub, exam }) => (
-                      <Link
-                        key={sub.id}
-                        href={`/subject?id=${sub.id}`}
-                        className="p-2.5 rounded-lg border border-[var(--rule)] bg-[var(--paper-deep)]/40 flex justify-between items-center opacity-70 hover:opacity-100 transition-opacity"
-                      >
-                        <div className="min-w-0 pr-2">
-                          <span className="font-medium text-[13px] text-[var(--ink)] truncate block">
-                            {sub.name}
-                          </span>
-                          <span className="font-mono text-[10px] text-emerald-700 font-semibold">
-                            ✓ {exam?.text || 'Exam Completed'}
-                          </span>
-                        </div>
-                        <span className="font-mono text-[10px] text-[var(--ink-faint)]">
-                          {sub.code || 'SUB'}
-                        </span>
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         ) : profile ? (
           <div className="border-[1.5px] border-dashed border-[var(--rule-strong)] rounded-xl p-6 bg-[var(--paper)] flex flex-col items-center justify-center text-center gap-2">
