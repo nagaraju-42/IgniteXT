@@ -4,7 +4,22 @@ import { useEffect, useState } from 'react';
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { UploadCloudIcon, FileTextIcon, ListTodoIcon, HelpCircleIcon, Loader2Icon, TrendingUpIcon } from "lucide-react";
+import {
+  UploadCloudIcon,
+  FileTextIcon,
+  ListTodoIcon,
+  HelpCircleIcon,
+  Loader2Icon,
+  TrendingUpIcon,
+  LayoutDashboardIcon,
+  ChevronRightIcon,
+  ActivityIcon,
+  MegaphoneIcon,
+  TicketIcon,
+  SettingsIcon,
+  UsersIcon,
+  ChevronLeftIcon,
+} from "lucide-react";
 
 export default function CommunityAdminDashboard() {
   const router = useRouter();
@@ -78,17 +93,39 @@ export default function CommunityAdminDashboard() {
   }
 
   return (
-    <div className="px-[18px] pt-4 pb-8 h-full flex flex-col bg-[var(--paper)] min-h-screen">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="font-bold text-[19px]">Community Hub</h1>
-          <p className="text-[12px] text-[var(--ink-soft)] mt-0.5">Welcome back, Contributor</p>
-        </div>
-        <span className="bg-[var(--ink)] text-[var(--paper)] font-mono text-[10px] px-2 py-1 rounded font-bold">
-          COMMUNITY ADMIN
+    <div className="px-[18px] pt-4 pb-12 h-full flex flex-col bg-[var(--paper)] min-h-screen">
+      <div className="flex items-center justify-between mb-4">
+        <Link href="/profile" className="inline-flex items-center gap-1 text-[12px] font-semibold text-[var(--ink-soft)] hover:text-[var(--ink)]">
+          <ChevronLeftIcon className="w-4 h-4" /> Profile
+        </Link>
+        <span className="bg-[var(--ink)] text-[var(--paper)] font-mono text-[10px] px-2 py-1 rounded font-bold uppercase">
+          {profile?.role === 'superadmin' ? 'SUPERADMIN' : 'COMMUNITY ADMIN'}
         </span>
       </div>
 
+      <div className="mb-5">
+        <h1 className="font-bold text-[20px] text-[var(--ink)]">Contributor Hub</h1>
+        <p className="text-[12px] text-[var(--ink-soft)] mt-0.5">Welcome back, {profile?.full_name || 'Admin'}</p>
+      </div>
+
+      {/* Main Admin Dashboard Link */}
+      <Link
+        href="/admin"
+        className="border-[2px] border-[var(--ink)] rounded-2xl p-4 bg-[#D7E600] text-[var(--ink)] font-bold flex items-center justify-between shadow-[3px_3px_0_var(--ink)] hover:translate-y-[1px] transition-all mb-6 cursor-pointer"
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-[var(--ink)] text-[var(--paper)] flex items-center justify-center shrink-0">
+            <LayoutDashboardIcon className="w-5 h-5 text-[#D7E600]" />
+          </div>
+          <div>
+            <div className="text-[14.5px] font-bold">Admin Dashboard</div>
+            <div className="text-[11px] font-medium opacity-85 mt-0.5">Access all management controls & modules</div>
+          </div>
+        </div>
+        <ChevronRightIcon className="w-5 h-5 shrink-0" />
+      </Link>
+
+      {/* Stats */}
       <div className="grid grid-cols-2 gap-3 mb-6">
         <div className="border-[1.5px] border-[var(--ink)] rounded-xl p-4 bg-[var(--hl)] text-[var(--ink)] flex flex-col items-center justify-center">
           <div className="font-display font-black text-[32px] leading-none mb-1">{uploadsCount}</div>
@@ -104,29 +141,65 @@ export default function CommunityAdminDashboard() {
         </div>
       </div>
 
-      <h2 className="font-bold text-[16px] mb-3">Your Actions</h2>
-        <div className="grid grid-cols-2 gap-3 mb-8">
-          <Link href="/admin/upload" className="border-[1.5px] border-[var(--rule-strong)] rounded-xl p-4 bg-[var(--paper)] hover:bg-[var(--paper-deep)] transition-colors flex flex-col gap-3">
-            <div className="w-10 h-10 rounded-full bg-[var(--paper-deep)] text-[var(--ink-soft)] flex items-center justify-center">
-              <UploadCloudIcon className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="font-bold text-[14px]">Upload Notes</div>
-              <div className="text-[11px] text-[var(--ink-soft)] mt-0.5">Publish new materials</div>
-            </div>
-          </Link>
-          <Link href="/community/requests" className="border-[1.5px] border-[var(--rule-strong)] rounded-xl p-4 bg-[var(--paper)] hover:bg-[var(--paper-deep)] transition-colors flex flex-col gap-3 relative overflow-hidden">
-            <div className="w-10 h-10 rounded-full bg-[var(--red-bg)] text-[var(--red)] flex items-center justify-center">
-              <TrendingUpIcon className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="font-bold text-[14px]">Student Requests</div>
-              <div className="text-[11px] text-[var(--ink-soft)] mt-0.5">See what's needed most</div>
-            </div>
-          </Link>
-        </div>
+      <h2 className="font-bold text-[15px] mb-3 text-[var(--ink)]">Quick Actions</h2>
+      <div className="grid grid-cols-2 gap-2.5 mb-6">
+        <Link href="/admin/upload" className="border-[1.5px] border-[var(--rule-strong)] rounded-xl p-3.5 bg-[var(--paper)] hover:bg-[var(--paper-deep)] transition-colors flex flex-col gap-2">
+          <div className="w-8 h-8 rounded-lg bg-[var(--paper-deep)] text-[var(--ink-soft)] flex items-center justify-center">
+            <UploadCloudIcon className="w-4 h-4 text-[var(--ink)]" />
+          </div>
+          <div>
+            <div className="font-bold text-[13px]">Upload Notes</div>
+            <div className="text-[10.5px] text-[var(--ink-soft)]">Publish new PDFs</div>
+          </div>
+        </Link>
+        <Link href="/community/requests" className="border-[1.5px] border-[var(--rule-strong)] rounded-xl p-3.5 bg-[var(--paper)] hover:bg-[var(--paper-deep)] transition-colors flex flex-col gap-2">
+          <div className="w-8 h-8 rounded-lg bg-[var(--red-bg)] text-[var(--red)] flex items-center justify-center">
+            <TrendingUpIcon className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="font-bold text-[13px]">Requests</div>
+            <div className="text-[10.5px] text-[var(--ink-soft)]">Needed materials</div>
+          </div>
+        </Link>
+        <Link href="/admin/taxonomy" className="border-[1.5px] border-[var(--rule-strong)] rounded-xl p-3.5 bg-[var(--paper)] hover:bg-[var(--paper-deep)] transition-colors flex flex-col gap-2">
+          <div className="w-8 h-8 rounded-lg bg-[var(--paper-deep)] text-[var(--ink-soft)] flex items-center justify-center">
+            <HelpCircleIcon className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="font-bold text-[13px]">Subjects</div>
+            <div className="text-[10.5px] text-[var(--ink-soft)]">Manage courses</div>
+          </div>
+        </Link>
+        <Link href="/admin/live" className="border-[1.5px] border-green-500 rounded-xl p-3.5 bg-green-500/5 hover:bg-green-500/10 transition-colors flex flex-col gap-2">
+          <div className="w-8 h-8 rounded-lg bg-green-500 text-white flex items-center justify-center">
+            <ActivityIcon className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="font-bold text-[13px] text-green-700">Live Radar</div>
+            <div className="text-[10.5px] text-green-600/80">Active students</div>
+          </div>
+        </Link>
+        <Link href="/admin/tickets" className="border-[1.5px] border-[var(--rule-strong)] rounded-xl p-3.5 bg-[var(--paper)] hover:bg-[var(--paper-deep)] transition-colors flex flex-col gap-2">
+          <div className="w-8 h-8 rounded-lg bg-[var(--paper-deep)] text-[var(--ink-soft)] flex items-center justify-center">
+            <TicketIcon className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="font-bold text-[13px]">Support CRM</div>
+            <div className="text-[10.5px] text-[var(--ink-soft)]">Student tickets</div>
+          </div>
+        </Link>
+        <Link href="/admin/announcements" className="border-[1.5px] border-[var(--rule-strong)] rounded-xl p-3.5 bg-[var(--paper)] hover:bg-[var(--paper-deep)] transition-colors flex flex-col gap-2">
+          <div className="w-8 h-8 rounded-lg bg-[var(--paper-deep)] text-[var(--ink-soft)] flex items-center justify-center">
+            <MegaphoneIcon className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="font-bold text-[13px]">Announcements</div>
+            <div className="text-[10.5px] text-[var(--ink-soft)]">Send push alerts</div>
+          </div>
+        </Link>
+      </div>
 
-      <h2 className="font-bold text-[16px] mb-3">Your Recent Uploads</h2>
+      <h2 className="font-bold text-[15px] mb-3 text-[var(--ink)]">Your Recent Uploads</h2>
       <div className="flex flex-col gap-2.5">
         {recentUploads.length === 0 ? (
           <div className="text-center text-[var(--ink-soft)] py-6 text-[13px] border-[1.5px] border-dashed border-[var(--rule-strong)] rounded-lg">

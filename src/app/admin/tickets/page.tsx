@@ -21,7 +21,7 @@ export default function SupportTickets() {
 
       // Verify superadmin
       const { data: prof } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-      if (!prof || prof.role !== 'superadmin') return router.push('/community');
+      if (!prof || (prof.role !== 'superadmin' && prof.role !== 'community_admin')) return router.push('/community/login');
 
       // Fetch tickets with user info (if they were logged in)
       const { data } = await supabase

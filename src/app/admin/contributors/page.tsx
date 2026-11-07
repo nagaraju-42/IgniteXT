@@ -18,7 +18,7 @@ export default function ContributorManagement() {
       if (!user) return router.push('/community/login');
 
       const { data: prof } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-      if (!prof || prof.role !== 'superadmin') return router.push('/community');
+      if (!prof || (prof.role !== 'superadmin' && prof.role !== 'community_admin')) return router.push('/community/login');
 
       const { data } = await supabase
         .from('profiles')

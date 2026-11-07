@@ -13,6 +13,7 @@ import {
   UserIcon,
   SlidersHorizontalIcon,
   CheckCircle2Icon,
+  UploadCloudIcon,
 } from "lucide-react";
 import { OnboardingModal, StudentProfile } from "@/components/OnboardingModal";
 
@@ -148,6 +149,9 @@ export default function Profile() {
               <Link href="/admin" className="btn btn-p w-full justify-center text-[13px]">
                 <LayoutDashboardIcon className="w-4 h-4" /> Go to Admin Dashboard
               </Link>
+              <Link href="/community" className="btn w-full justify-center border-[1.5px] border-[var(--rule-strong)] bg-[var(--paper-deep)] text-[var(--ink)] text-[13px]">
+                <UploadCloudIcon className="w-4 h-4" /> Contributor Hub
+              </Link>
               <button
                 onClick={handleSignOut}
                 className="btn w-full justify-center border-[1.5px] border-[var(--rule-strong)] bg-[var(--paper)] text-[var(--ink)] text-[13px]"
@@ -157,20 +161,34 @@ export default function Profile() {
             </div>
           </>
         ) : (
-          <div className="flex items-center justify-between text-left">
-            <div>
-              <div className="font-bold text-[14px] text-[var(--ink)]">Contributor & Admin</div>
-              <div className="text-[11px] text-[var(--ink-soft)] mt-0.5">
-                Login to upload notes & manage taxonomy
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between text-left">
+              <div>
+                <div className="font-bold text-[14px] text-[var(--ink)]">Contributor & Admin</div>
+                <div className="text-[11px] text-[var(--ink-soft)] mt-0.5">
+                  Login to upload notes & manage taxonomy
+                </div>
+              </div>
+              <Link
+                href="/community/login"
+                className="bg-[var(--ink)] text-[var(--paper)] font-bold text-[12px] px-3.5 py-2 rounded-xl flex items-center gap-1.5 hover:opacity-90 transition-opacity"
+              >
+                <LogInIcon className="w-3.5 h-3.5" />
+                <span>Login</span>
+              </Link>
+            </div>
+            <div className="border-t border-[var(--rule)] pt-2.5 flex items-center justify-between">
+              <span className="text-[11px] text-[var(--ink-soft)] font-medium">Direct Access</span>
+              <div className="flex items-center gap-2">
+                <Link href="/admin" className="text-[11px] font-bold text-[var(--ink)] hover:underline">
+                  Admin Dashboard
+                </Link>
+                <span className="text-[var(--ink-faint)]">·</span>
+                <Link href="/community" className="text-[11px] font-bold text-[var(--ink)] hover:underline">
+                  Contributor Hub
+                </Link>
               </div>
             </div>
-            <Link
-              href="/community/login"
-              className="bg-[var(--ink)] text-[var(--paper)] font-bold text-[12px] px-3.5 py-2 rounded-xl flex items-center gap-1.5 hover:opacity-90 transition-opacity"
-            >
-              <LogInIcon className="w-3.5 h-3.5" />
-              <span>Login</span>
-            </Link>
           </div>
         )}
       </div>

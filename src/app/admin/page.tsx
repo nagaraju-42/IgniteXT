@@ -29,7 +29,7 @@ export default function AdminDashboard() {
         .eq('id', user.id)
         .single();
       
-      if (!prof || prof.role !== 'superadmin') {
+      if (!prof || (prof.role !== 'superadmin' && prof.role !== 'community_admin')) {
         router.push('/community');
         return;
       }

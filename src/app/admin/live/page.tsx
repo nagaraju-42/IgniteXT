@@ -17,9 +17,11 @@ function LiveRadarPage() {
   useEffect(() => {
     // Create an isolated client just for this channel so it doesn't conflict
     // with the LiveCounter singleton channel that is already subscribed
+        const defaultUrl = 'https://ffmioulgyhpsqxodfths.supabase.co';
+    const defaultKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZmbWlvdWxneWhwc3F4b2RmdGhzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY2MDIzNjcsImV4cCI6MjEwMjE3ODM2N30.0bK1FnUmo7W1YURXQpJ1kAA1pBmGzPm0bSQLKYI7So0';
     const radarSupabase = createRawClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      process.env.NEXT_PUBLIC_SUPABASE_URL || defaultUrl,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || defaultKey
     );
     
     const channel = radarSupabase.channel('global_room');

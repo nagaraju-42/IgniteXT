@@ -29,7 +29,7 @@ export default function TaxonomyManagement() {
       if (!user) return router.push('/community/login');
 
       const { data: prof } = await supabase.from('profiles').select('*').eq('id', user.id).single();
-      if (!prof || prof.role !== 'superadmin') return router.push('/community');
+      if (!prof || (prof.role !== 'superadmin' && prof.role !== 'community_admin')) return router.push('/community/login');
 
       // Load reference data
       const [uniRes, regRes, branchRes, subRes] = await Promise.all([

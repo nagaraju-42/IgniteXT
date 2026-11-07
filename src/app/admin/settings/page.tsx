@@ -28,7 +28,7 @@ export default function PlatformSettings() {
       if (!user) return router.push('/community/login');
 
       const { data: prof } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-      if (!prof || prof.role !== 'superadmin') return router.push('/community');
+      if (!prof || (prof.role !== 'superadmin' && prof.role !== 'community_admin')) return router.push('/community/login');
 
       const { data: s } = await supabase.from('platform_settings').select('*');
       if (s) {
