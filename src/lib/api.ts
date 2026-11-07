@@ -65,11 +65,37 @@ export async function getPopularContent() {
 export async function getContentBySubject(subjectId: string) {
   const supabase = createClient();
   const { data } = await supabase
-    .from('content_with_meta')
-    .select('*')
+    .from('content_items')
+    .select(`
+      *,
+      subjects (
+        code,
+        name,
+        semester,
+        total_units,
+        branches (code, label),
+        regulations (code)
+      ),
+      profiles (full_name)
+    `)
     .eq('subject_id', subjectId)
+    .eq('status', 'published')
     .order('created_at', { ascending: false });
-  return (data || []) as ContentWithMeta[];
+
+  if (!data) return [];
+
+  // Map to the ContentWithMeta shape
+  return data.map((item: any) => ({
+    ...item,
+    subject_code: item.subjects?.code,
+    subject_name: item.subjects?.name,
+    semester: item.subjects?.semester,
+    total_units: item.subjects?.total_units,
+    branch_code: item.subjects?.branches?.code,
+    branch_label: item.subjects?.branches?.label,
+    regulation_code: item.subjects?.regulations?.code,
+    uploader_name: item.profiles?.full_name
+  })) as ContentWithMeta[];
 }
 
 export async function recordDownload(contentId: string) {

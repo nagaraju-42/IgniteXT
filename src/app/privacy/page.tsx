@@ -24,7 +24,8 @@ export default function PrivacyPolicy() {
           <ul className="list-disc pl-5 space-y-1">
             <li><strong>Device Storage:</strong> We require local storage permissions solely to save educational PDFs (notes, PYQs) directly to your device so you can access them offline.</li>
             <li><strong>Usage Data:</strong> We may collect anonymous analytics (such as download counts) to understand which study materials are most helpful to our community.</li>
-            <li><strong>Account Data:</strong> If you are a Community Admin, we securely store your authentication credentials (email) via our authentication provider (Supabase). Standard students do not require accounts and thus provide no personal data.</li>
+            <li><strong>Student Verification:</strong> We collect your college Hall Ticket Number to verify student status before allowing access to educational materials. This is used solely to prevent unauthorized access.</li>
+            <li><strong>Account Data:</strong> If you are a Community Admin, we securely store your authentication credentials (email) via our authentication provider (Supabase).</li>
           </ul>
         </section>
 
@@ -45,7 +46,8 @@ export default function PrivacyPolicy() {
         <section>
           <h2 className="font-bold text-[16px] mb-2">5. Contact Us</h2>
           <p>
-            If you have any questions or concerns about this Privacy Policy or our data practices, please contact the developer team through the app or at our official support email.
+            If you have any questions or concerns about this Privacy Policy or our data practices, please contact the developer team at:<br/>
+            <strong>Email:</strong> <a href="mailto:bigguysolution@gmail.com" className="text-[var(--hl-ink)] underline">bigguysolution@gmail.com</a>
           </p>
         </section>
       </div>
