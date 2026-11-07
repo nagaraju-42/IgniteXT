@@ -121,7 +121,9 @@ export default function Search() {
                       onClick={() => handleOpenOffline(file.contentId, file.fileUrl)}
                       className="border-[1.5px] border-[var(--rule-strong)] rounded-lg p-3 bg-[var(--paper-card)] flex items-center gap-3 cursor-pointer hover:border-[var(--ink)] transition-colors group shadow-sm"
                     >
-                      
+                      <div className="w-9 h-9 rounded-lg bg-[var(--paper-deep)] border border-[var(--rule-strong)] flex items-center justify-center shrink-0 shadow-sm text-[var(--ink)]">
+                        <FileTextIcon className="w-4 h-4" />
+                      </div>
                       <div className="flex-1 min-w-0">
                         <div className="font-bold text-[13px] text-[var(--ink)] truncate group-hover:underline">{file.title}</div>
                         <div className="font-mono text-[9px] text-[var(--ink-soft)] mt-1 flex items-center gap-1.5">
