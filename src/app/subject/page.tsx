@@ -357,7 +357,7 @@ function SubjectContent() {
   };
 
   // Download a single file
-  const handleDownloadSingle = async (e: React.MouseEvent, item: any) => {
+  const handleDownloadSingle = async (e: React.MouseEvent, item: any, titleToSave?: string) => {
     e.stopPropagation();
     const fn = OfflineManager.getFileName(item.file_url);
     setDownloadingMap(prev => ({ ...prev, [fn]: true }));
@@ -367,7 +367,7 @@ function SubjectContent() {
       : `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL || DEFAULT_R2_URL}/${item.file_url}`;
 
     await OfflineManager.downloadFile(fullUrl, fn);
-    OfflineManager.saveMetadata(fn, item.title, item.file_size_kb, subject?.name, item.type === 'pyq');
+    OfflineManager.saveMetadata(fn, titleToSave || item.title, item.file_size_kb, subject?.name, item.type === 'pyq');
     
     setDownloadingMap(prev => ({ ...prev, [fn]: false }));
     syncOfflineStatus();
@@ -658,7 +658,7 @@ function SubjectContent() {
                             )}
                             <button
                               type="button"
-                              onClick={(e) => isDownloaded ? handleDeleteSingle(e, pyq) : handleDownloadSingle(e, pyq)}
+                              onClick={(e) => isDownloaded ? handleDeleteSingle(e, pyq) : handleDownloadSingle(e, pyq, pyqTitle)}
                               className="w-6 h-6 rounded-md border border-[#1C1B17] bg-[#FAF9F5] hover:bg-white flex items-center justify-center text-[#1C1B17] transition-all"
                             >
                               {isDownloading ? (
@@ -730,8 +730,11 @@ function SubjectContent() {
                       const isDownloading = downloadingMap[fn];
                       const sizeMb = note.file_size_kb ? (note.file_size_kb / 1024).toFixed(1) : '1.3';
                       
-                      // Clean sequential title (e.g. CIS Unit-1-1 or Notes Unit 1)
-                      const displayTitle = note.displayTitle || `${shortCode} Unit-${unitNum}-${noteIdx + 1}`;
+                      // Clean automatic sequential title regardless of uploaded PDF name: CIS Unit-1-1, CIS Unit-1-2...
+                      const cleanRawTitle = (note.title || '').replace(/^null\s+/, '').trim();
+                      const displayTitle = (/^[A-Z0-9]{2,6}(\s+Lab)?\s+Unit-\d+-\d+$/i.test(cleanRawTitle))
+                        ? cleanRawTitle
+                        : `${shortCode} Unit-${unitNum}-${noteIdx + 1}`;
 
                       return (
                         <div
@@ -771,7 +774,7 @@ function SubjectContent() {
 
                             <button
                               type="button"
-                              onClick={(e) => isDownloaded ? handleDeleteSingle(e, note) : handleDownloadSingle(e, note)}
+                              onClick={(e) => isDownloaded ? handleDeleteSingle(e, note) : handleDownloadSingle(e, note, displayTitle)}
                               disabled={isDownloading}
                               className={`w-8 h-8 rounded-xl border border-[#1C1B17] flex items-center justify-center text-[#1C1B17] shadow-[1px_1px_0_#1C1B17] active:scale-95 transition-all ${
                                 isDownloaded ? 'bg-[#FAF9F5] hover:bg-red-50 text-red-600' : 'bg-[#C8E600] hover:bg-[#bfe000]'

@@ -134,8 +134,8 @@ export default function AdminUpload() {
       const { count: existingDbCount } = await countQuery;
       let currentSeq = existingDbCount || 0;
 
-      const { data: userProfile } = await supabase.from('profiles').select('role').eq('id', userId).single();
-      const initialStatus = userProfile?.role === 'superadmin' ? 'published' : 'draft';
+      // Always publish immediately when uploaded through Admin Upload portal
+      const initialStatus = 'published';
 
       const completedTitles: string[] = [];
 
@@ -428,24 +428,39 @@ export default function AdminUpload() {
             {/* Selected Files List Preview */}
             {files.length > 0 && (
               <div className="mt-3 flex flex-col gap-2 max-h-48 overflow-y-auto pr-1">
-                {files.map((f, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-2.5 rounded-xl border border-[var(--rule-strong)] bg-[var(--paper-deep)] text-[12px]">
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <FilesIcon className="w-4 h-4 shrink-0 text-[var(--ink-soft)]" />
-                      <span className="font-medium text-[var(--ink)] truncate">{f.name}</span>
-                      <span className="font-mono text-[10px] text-[var(--ink-soft)] shrink-0">
-                        ({(f.size / (1024 * 1024)).toFixed(2)} MB)
-                      </span>
+                {files.map((f, idx) => {
+                  const previewTitle = selectedSubject ? generateMaterialTitle({
+                    shortCode: derivedShortCode || 'SUB',
+                    category: materialType,
+                    unitNumber: materialType === 'notes' ? (parseInt(unitOrYear.replace('Unit ', '')) || 1) : null,
+                    seqNumber: idx + 1
+                  }) : f.name;
+
+                  return (
+                    <div key={idx} className="flex items-center justify-between p-2.5 rounded-xl border border-[var(--rule-strong)] bg-[var(--paper-deep)] text-[12px]">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <FilesIcon className="w-4 h-4 shrink-0 text-[var(--ink-soft)]" />
+                        <div className="min-w-0 flex-1">
+                          <div className="font-bold text-[var(--ink)] flex items-center gap-2 truncate">
+                            <span className="bg-[#C8E600] text-[#1C1B17] px-2 py-0.5 rounded font-mono text-[10.5px] font-black border border-[#1C1B17]">
+                              {previewTitle}
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-[var(--ink-soft)] truncate font-mono mt-0.5">
+                            Raw file: {f.name} · {(f.size / (1024 * 1024)).toFixed(2)} MB
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeFile(idx)}
+                        className="text-[var(--ink-soft)] hover:text-red-600 p-1 rounded-lg transition-colors ml-2 shrink-0 cursor-pointer"
+                      >
+                        <XIcon className="w-4 h-4" />
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => removeFile(idx)}
-                      className="text-[var(--ink-soft)] hover:text-red-600 p-1 rounded-lg transition-colors ml-2 shrink-0 cursor-pointer"
-                    >
-                      <XIcon className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
