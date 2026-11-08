@@ -16,12 +16,22 @@ export default function Search() {
   useEffect(() => {
     const fetchSubjects = async () => {
       const supabase = createClient();
-      const { data } = await supabase
+      let loaded: any[] = [];
+      const { data, error } = await supabase
         .from('subjects')
-        .select('id, name, code, short_name, keywords, semester, total_units, branches(code), regulations(code)')
+        .select('id, name, code, semester, total_units, branches(code), regulations(code)')
         .eq('is_active', true);
       
-      if (data) setSubjects(data);
+      if (data && data.length > 0) {
+        loaded = data;
+      } else {
+        const { data: basic } = await supabase
+          .from('subjects')
+          .select('id, name, code, semester, total_units')
+          .eq('is_active', true);
+        loaded = basic || [];
+      }
+      setSubjects(loaded);
       setLoading(false);
     };
     fetchSubjects();

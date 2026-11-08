@@ -19,6 +19,7 @@ import {
 import { createClient } from '@/lib/supabase/client';
 import { OnboardingModal, StudentProfile } from '@/components/OnboardingModal';
 import type { Subject } from '@/lib/types';
+import { DEFAULT_EXAM_TIMETABLE } from '@/lib/defaultExamTimetable';
 
 interface LastReadState {
   file: string;
@@ -73,11 +74,19 @@ export default function Home() {
   };
 
   const loadExamTimetable = async () => {
+    // 1. Immediately initialize with cached or bundled default timetable
+    let initialTimetable = DEFAULT_EXAM_TIMETABLE;
     try {
       const local = localStorage.getItem('semkit_exam_timetable_v2');
-      if (local) setExamTimetable(JSON.parse(local));
+      if (local) {
+        initialTimetable = JSON.parse(local);
+      } else {
+        localStorage.setItem('semkit_exam_timetable_v2', JSON.stringify(DEFAULT_EXAM_TIMETABLE));
+      }
     } catch(e) {}
+    setExamTimetable(initialTimetable);
 
+    // 2. Fetch live updates from Supabase platform_settings
     if (typeof navigator !== 'undefined' && navigator.onLine) {
       try {
         const { data } = await supabase
@@ -88,8 +97,10 @@ export default function Home() {
 
         if (data && data.value) {
           const parsed = JSON.parse(data.value);
-          setExamTimetable(parsed);
-          localStorage.setItem('semkit_exam_timetable_v2', JSON.stringify(parsed));
+          if (parsed && (parsed.flatLookup || Object.keys(parsed).length > 0)) {
+            setExamTimetable(parsed);
+            localStorage.setItem('semkit_exam_timetable_v2', JSON.stringify(parsed));
+          }
         }
       } catch(err) {}
     }

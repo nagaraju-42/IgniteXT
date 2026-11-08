@@ -20,6 +20,7 @@ import { createClient } from "@/lib/supabase/client";
 import { getUnitColor } from "@/lib/colorUtils";
 import { OfflineManager } from "@/lib/offlineManager";
 import { deriveSubjectShortCode } from "@/lib/subjectNaming";
+import { DEFAULT_EXAM_TIMETABLE } from "@/lib/defaultExamTimetable";
 
 const DEFAULT_R2_URL = 'https://pub-fba885359a4d40d6bd6e89575d51f9ca.r2.dev';
 
@@ -72,10 +73,16 @@ function SubjectContent() {
 
   // Load Exam Timetable for countdown
   useEffect(() => {
+    let initialTimetable = DEFAULT_EXAM_TIMETABLE;
     try {
       const local = localStorage.getItem('semkit_exam_timetable_v2');
-      if (local) setExamTimetable(JSON.parse(local));
+      if (local) {
+        initialTimetable = JSON.parse(local);
+      } else {
+        localStorage.setItem('semkit_exam_timetable_v2', JSON.stringify(DEFAULT_EXAM_TIMETABLE));
+      }
     } catch(e) {}
+    setExamTimetable(initialTimetable);
 
     async function fetchTimetable() {
       if (typeof navigator !== 'undefined' && navigator.onLine) {
@@ -88,8 +95,10 @@ function SubjectContent() {
 
           if (data && data.value) {
             const parsed = JSON.parse(data.value);
-            setExamTimetable(parsed);
-            localStorage.setItem('semkit_exam_timetable_v2', JSON.stringify(parsed));
+            if (parsed && (parsed.flatLookup || Object.keys(parsed).length > 0)) {
+              setExamTimetable(parsed);
+              localStorage.setItem('semkit_exam_timetable_v2', JSON.stringify(parsed));
+            }
           }
         } catch(err) {}
       }

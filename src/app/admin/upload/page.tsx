@@ -66,11 +66,23 @@ export default function AdminUpload() {
         return;
       }
 
-      // Fetch subjects with regulation & branch data
-      const { data: subs } = await supabase
+      // Fetch subjects with regulation & branch data (resilient without requiring short_name column)
+      let loadedSubs: any[] = [];
+      const { data: subs, error: subsErr } = await supabase
         .from('subjects')
-        .select('id, name, code, short_name, semester, unit_names, total_units, branches(code), regulations(code)');
-      setSubjects(subs || []);
+        .select('id, name, code, semester, unit_names, total_units, branches(code), regulations(code)')
+        .order('name');
+
+      if (subs && subs.length > 0) {
+        loadedSubs = subs;
+      } else {
+        const { data: basicSubs } = await supabase
+          .from('subjects')
+          .select('id, name, code, semester, unit_names, total_units')
+          .order('name');
+        loadedSubs = basicSubs || [];
+      }
+      setSubjects(loadedSubs);
 
       setLoading(false);
     }
