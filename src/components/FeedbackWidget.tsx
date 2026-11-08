@@ -19,19 +19,43 @@ export function FeedbackWidget() {
 
     try {
       let roll = '';
+      let spaceInfo = '';
       try {
-        const saved = localStorage.getItem('semkit_profile') || localStorage.getItem('ignitext_profile');
-        if (saved) roll = JSON.parse(saved).roll;
+        const saved = localStorage.getItem('semkit_user_profile') || localStorage.getItem('ignitext_user_profile') || localStorage.getItem('semkit_profile');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          roll = parsed.roll || '';
+          spaceInfo = `${parsed.reg_code || ''} ${parsed.branch_code || ''} Sem ${parsed.sem || ''}`.trim();
+        }
       } catch (err) {}
 
-      const { data: { user } } = await supabase.auth.getUser();
+      let validUserId: string | null = null;
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: prof } = await supabase.from('profiles').select('id').eq('id', user.id).maybeSingle();
+          if (prof) validUserId = user.id;
+        }
+      } catch (e) {}
 
-      await supabase.from('support_tickets').insert({
-        user_id: user?.id || null,
+      const contactString = [roll, spaceInfo].filter(Boolean).join(' · ') || 'Anonymous Student';
+
+      const { error: ticketErr } = await supabase.from('support_tickets').insert({
+        user_id: validUserId,
         category: 'general',
-        message: `[Floating Feedback] ${feedback.trim()} (User: ${roll || 'Anonymous'})`,
+        message: `[Floating Feedback] ${feedback.trim()} (User: ${contactString})`,
         status: 'open',
       });
+
+      if (ticketErr) {
+        console.warn("Feedback insert error, trying null user_id fallback:", ticketErr);
+        await supabase.from('support_tickets').insert({
+          user_id: null,
+          category: 'general',
+          message: `[Floating Feedback] ${feedback.trim()} (User: ${contactString})`,
+          status: 'open',
+        }).catch(() => {});
+      }
     } catch (err) {
       console.error("Error submitting ticket:", err);
     }

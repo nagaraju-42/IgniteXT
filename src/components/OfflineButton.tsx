@@ -32,7 +32,13 @@ export function OfflineButton({ contentId, fileUrl, title, sizeKb, subjectName, 
       checkStatus();
     };
     window.addEventListener('offline_files_changed', handleSync);
-    return () => window.removeEventListener('offline_files_changed', handleSync);
+    window.addEventListener('offline_file_deleted', handleSync);
+    window.addEventListener('storage', handleSync);
+    return () => {
+      window.removeEventListener('offline_files_changed', handleSync);
+      window.removeEventListener('offline_file_deleted', handleSync);
+      window.removeEventListener('storage', handleSync);
+    };
   }, [filename]);
 
   async function checkStatus() {

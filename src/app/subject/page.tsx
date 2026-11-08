@@ -62,20 +62,18 @@ function SubjectContent() {
   // Check if all notes in this subject are already downloaded
   useEffect(() => {
     async function checkPackStatus() {
-      const allFiles = [...notes, ...pyqs];
-      if (allFiles.length === 0) {
+      const downloadable = [...notes, ...pyqs].filter(f => f && f.file_url && f.file_url.trim().length > 0);
+      if (downloadable.length === 0) {
         setIsPackDownloaded(false);
         return;
       }
       let allDownloaded = true;
-      for (const item of allFiles) {
-        if (item.file_url) {
-          const fn = OfflineManager.getFileName(item.file_url);
-          const isDownloaded = await OfflineManager.isFileDownloaded(fn);
-          if (!isDownloaded) {
-            allDownloaded = false;
-            break;
-          }
+      for (const item of downloadable) {
+        const fn = OfflineManager.getFileName(item.file_url);
+        const isDownloaded = await OfflineManager.isFileDownloaded(fn);
+        if (!isDownloaded) {
+          allDownloaded = false;
+          break;
         }
       }
       setIsPackDownloaded(allDownloaded);
@@ -84,7 +82,13 @@ function SubjectContent() {
 
     const handleSync = () => checkPackStatus();
     window.addEventListener('offline_files_changed', handleSync);
-    return () => window.removeEventListener('offline_files_changed', handleSync);
+    window.addEventListener('offline_file_deleted', handleSync);
+    window.addEventListener('storage', handleSync);
+    return () => {
+      window.removeEventListener('offline_files_changed', handleSync);
+      window.removeEventListener('offline_file_deleted', handleSync);
+      window.removeEventListener('storage', handleSync);
+    };
   }, [notes, pyqs]);
 
   const handleDownloadPack = async () => {
@@ -356,58 +360,67 @@ function SubjectContent() {
       <div className="flex-1 overflow-y-auto px-[18px] py-5">
         
         {/* 1-Click Offline Subject Pack */}
-        <div className="border-[2px] border-[var(--ink)] rounded-2xl p-4 bg-[#D7E600]/20 mb-6 shadow-[3px_3px_0_var(--ink)]">
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5 mb-1">
-                <FolderDownIcon className="w-4 h-4 text-[var(--ink)]" />
-                <span className="font-bold text-[13.5px] text-[var(--ink)]">
-                  1-Click Offline Subject Pack
-                </span>
+        {(() => {
+          const downloadableCount = notes.filter((n: any) => n.file_url).length + pyqs.filter((p: any) => p.file_url).length;
+          return (
+            <div className="border-[2px] border-[var(--ink)] rounded-2xl p-4 bg-[#D7E600]/20 mb-6 shadow-[3px_3px_0_var(--ink)]">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <FolderDownIcon className="w-4 h-4 text-[var(--ink)]" />
+                    <span className="font-bold text-[13.5px] text-[var(--ink)]">
+                      1-Click Offline Subject Pack
+                    </span>
+                  </div>
+                  <p className="text-[11.5px] text-[var(--ink-soft)] leading-snug">
+                    {downloadableCount > 0 
+                      ? `Download all ${downloadableCount} notes & PYQs to study offline without internet`
+                      : 'No PDFs uploaded yet for this subject. Coming soon.'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleDownloadPack}
+                  disabled={isDownloadingPack || downloadableCount === 0}
+                  className="bg-[var(--ink)] text-[var(--paper)] font-bold text-[12px] px-3.5 py-2.5 rounded-xl shadow-sm hover:translate-y-[1px] active:scale-95 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {downloadableCount === 0 ? (
+                    <span>Coming Soon</span>
+                  ) : isDownloadingPack ? (
+                    <>
+                      <Loader2Icon className="w-4 h-4 animate-spin text-[#D7E600]" />
+                      <span>{packProgress?.current || 1}/{packProgress?.total || 1}</span>
+                    </>
+                  ) : isPackDownloaded ? (
+                    <>
+                      <CheckCircle2Icon className="w-4 h-4 text-[#D7E600]" />
+                      <span>Downloaded</span>
+                    </>
+                  ) : (
+                    <>
+                      <DownloadIcon className="w-4 h-4" />
+                      <span>Download All</span>
+                    </>
+                  )}
+                </button>
               </div>
-              <p className="text-[11.5px] text-[var(--ink-soft)] leading-snug">
-                Download all {notes.length + pyqs.length} notes & PYQs to study offline without internet
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={handleDownloadPack}
-              disabled={isDownloadingPack || (notes.length === 0 && pyqs.length === 0)}
-              className="bg-[var(--ink)] text-[var(--paper)] font-bold text-[12px] px-3.5 py-2.5 rounded-xl shadow-sm hover:translate-y-[1px] active:scale-95 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-50"
-            >
-              {isDownloadingPack ? (
-                <>
-                  <Loader2Icon className="w-4 h-4 animate-spin text-[#D7E600]" />
-                  <span>{packProgress?.current || 1}/{packProgress?.total || 1}</span>
-                </>
-              ) : isPackDownloaded ? (
-                <>
-                  <CheckCircle2Icon className="w-4 h-4 text-[#D7E600]" />
-                  <span>Downloaded</span>
-                </>
-              ) : (
-                <>
-                  <DownloadIcon className="w-4 h-4" />
-                  <span>Download All</span>
-                </>
+              {isDownloadingPack && packProgress && (
+                <div className="mt-3 pt-2.5 border-t border-[var(--rule-strong)]">
+                  <div className="flex justify-between text-[10.5px] font-mono text-[var(--ink-soft)] mb-1">
+                    <span className="truncate pr-2">{packProgress.message}</span>
+                    <span className="shrink-0">{Math.round((packProgress.current / packProgress.total) * 100)}%</span>
+                  </div>
+                  <div className="w-full bg-[var(--paper)] h-2 rounded-full overflow-hidden border border-[var(--rule)]">
+                    <div 
+                      className="bg-[var(--ink)] h-full transition-all duration-300"
+                      style={{ width: `${(packProgress.current / packProgress.total) * 100}%` }}
+                    />
+                  </div>
+                </div>
               )}
-            </button>
-          </div>
-          {isDownloadingPack && packProgress && (
-            <div className="mt-3 pt-2.5 border-t border-[var(--rule-strong)]">
-              <div className="flex justify-between text-[10.5px] font-mono text-[var(--ink-soft)] mb-1">
-                <span className="truncate pr-2">{packProgress.message}</span>
-                <span className="shrink-0">{Math.round((packProgress.current / packProgress.total) * 100)}%</span>
-              </div>
-              <div className="w-full bg-[var(--paper)] h-2 rounded-full overflow-hidden border border-[var(--rule)]">
-                <div 
-                  className="bg-[var(--ink)] h-full transition-all duration-300"
-                  style={{ width: `${(packProgress.current / packProgress.total) * 100}%` }}
-                />
-              </div>
             </div>
-          )}
-        </div>
+          );
+        })()}
 
         {/* Unit Notes Section */}
         <h2 className="font-semibold text-[13px] text-[var(--ink-soft)] uppercase tracking-wide mb-3 flex items-center gap-2">

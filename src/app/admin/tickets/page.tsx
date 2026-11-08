@@ -23,24 +23,31 @@ export default function SupportTickets() {
       const { data: prof } = await supabase.from('profiles').select('role').eq('id', user.id).single();
       if (!prof || (prof.role !== 'superadmin' && prof.role !== 'community_admin')) return router.push('/community/login');
 
-      // Fetch tickets with robust fallback
+      // Fetch tickets safely without strict join failures
       let { data, error } = await supabase
         .from('support_tickets')
-        .select(`
-          *,
-          profiles (full_name, email, role)
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
-      if (error || !data) {
-        const fallback = await supabase
-          .from('support_tickets')
-          .select('*')
-          .order('created_at', { ascending: false });
-        if (fallback.data) data = fallback.data;
+      if (data) {
+        const userIds = data.map(t => t.user_id).filter(Boolean);
+        if (userIds.length > 0) {
+          const { data: profs } = await supabase
+            .from('profiles')
+            .select('id, full_name, email, role')
+            .in('id', userIds);
+          if (profs) {
+            const profMap = new Map(profs.map(p => [p.id, p]));
+            data = data.map(t => ({
+              ...t,
+              profiles: t.user_id ? profMap.get(t.user_id) : null
+            }));
+          }
+        }
+        setTickets(data);
+      } else if (error) {
+        console.error("Error loading tickets:", error);
       }
-
-      if (data) setTickets(data);
       setLoading(false);
     }
     loadTickets();

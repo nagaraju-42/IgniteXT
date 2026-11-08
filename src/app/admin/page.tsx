@@ -4,7 +4,19 @@ import { useEffect, useState } from 'react';
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { UploadCloudIcon, UsersIcon, FileTextIcon, HelpCircleIcon, Loader2Icon, CheckCircleIcon, XCircleIcon, SettingsIcon, MegaphoneIcon, TicketIcon } from "lucide-react";
+import { 
+  UploadCloudIcon, 
+  UsersIcon, 
+  FileTextIcon, 
+  HelpCircleIcon, 
+  Loader2Icon, 
+  CheckCircleIcon, 
+  XCircleIcon, 
+  SettingsIcon, 
+  MegaphoneIcon, 
+  TicketIcon, 
+  CalendarIcon 
+} from "lucide-react";
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -183,6 +195,16 @@ export default function AdminDashboard() {
           <div>
             <div className="font-semibold text-[14px] text-green-700">Activity Radar</div>
             <div className="text-[11px] text-green-600/80 mt-0.5">Watch live students & session history</div>
+          </div>
+        </Link>
+
+        <Link href="/admin/exams" className="border-[1.5px] border-[var(--ink)] rounded-xl p-4 bg-[#D7E600]/25 hover:bg-[#D7E600]/40 transition-colors flex items-center gap-4 shadow-[2px_2px_0_var(--ink)]">
+          <div className="w-10 h-10 rounded-full bg-[var(--ink)] text-[#D7E600] flex items-center justify-center shrink-0">
+            <CalendarIcon className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="font-semibold text-[14px] text-[var(--ink)]">Exam Timetable & Schedule</div>
+            <div className="text-[11px] text-[var(--ink-soft)] mt-0.5">Set Mid-1, Mid-2, Semester exams & auto-sort</div>
           </div>
         </Link>
         

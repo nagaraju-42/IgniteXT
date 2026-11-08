@@ -19,36 +19,20 @@ export const OfflineManager = {
    * Checks if a file is already downloaded and saved offline
    */
   async isFileDownloaded(filename: string): Promise<boolean> {
-    const cleanFn = decodeURIComponent(filename || '').toLowerCase();
+    if (!filename) return false;
+    const cleanFn = decodeURIComponent(filename || '').toLowerCase().trim();
+    const rawFn = (filename || '').toLowerCase().trim();
     
     // 1. Fast metadata check from localStorage
     const metaFiles = this.getDownloadedFiles();
     const inMeta = metaFiles.some((f: any) => {
-      const fName = decodeURIComponent(f.filename || '').toLowerCase();
-      return fName === cleanFn || f.filename === filename;
+      const fName = decodeURIComponent(f.filename || '').toLowerCase().trim();
+      const orig = (f.filename || '').toLowerCase().trim();
+      return fName === cleanFn || orig === rawFn || fName === rawFn || orig === cleanFn;
     });
-    if (inMeta) return true;
-
-    // 2. Physical disk check
-    try {
-      await Filesystem.stat({
-        path: `pdf_cache/${filename}`,
-        directory: Directory.Data,
-      });
-      return true;
-    } catch {
-      try {
-        const decoded = decodeURIComponent(filename);
-        if (decoded !== filename) {
-          await Filesystem.stat({
-            path: `pdf_cache/${decoded}`,
-            directory: Directory.Data,
-          });
-          return true;
-        }
-      } catch {}
-      return false;
-    }
+    
+    // If not in metadata, it is not saved offline (or was deleted by the user)
+    return inMeta;
   },
 
   /**

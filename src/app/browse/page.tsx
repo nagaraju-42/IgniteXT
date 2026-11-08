@@ -20,8 +20,14 @@ export default function Browse() {
 
   const supabase = createClient();
 
-  // Load universities & branches initially
+  // Load universities & branches initially with student's profile defaults
   useEffect(() => {
+    let profile: any = null;
+    try {
+      const p = localStorage.getItem('semkit_user_profile') || localStorage.getItem('ignitext_user_profile') || localStorage.getItem('semkit_profile');
+      if (p) profile = JSON.parse(p);
+    } catch(e) {}
+
     async function loadInitialData() {
       const { data: uniData } = await supabase.from('universities').select('*').eq('is_active', true).order('sort_order');
       const { data: branchData } = await supabase.from('branches').select('*').eq('is_active', true).order('sort_order');
@@ -30,14 +36,37 @@ export default function Browse() {
       setBranches(branchData || []);
 
       if (uniData && uniData.length > 0) setSelectedUni(uniData[0].id);
-      if (branchData && branchData.length > 0) setSelectedBranch(branchData[0].id);
+
+      // Pre-select student's branch from space setup
+      if (branchData && branchData.length > 0) {
+        if (profile?.branch_id) {
+          const match = branchData.find(b => b.id === profile.branch_id);
+          setSelectedBranch(match ? match.id : branchData[0].id);
+        } else if (profile?.branch_code) {
+          const match = branchData.find(b => b.code?.toUpperCase() === profile.branch_code?.toUpperCase());
+          setSelectedBranch(match ? match.id : branchData[0].id);
+        } else {
+          setSelectedBranch(branchData[0].id);
+        }
+      }
+
+      // Pre-select student's semester from space setup
+      if (profile?.sem && Number(profile.sem) >= 1 && Number(profile.sem) <= 8) {
+        setSelectedSem(Number(profile.sem));
+      }
     }
     loadInitialData();
   }, []);
 
-  // Fetch regulations when university changes
+  // Fetch regulations when university changes, pre-selecting student's space regulation
   useEffect(() => {
     if (!selectedUni) return;
+
+    let profile: any = null;
+    try {
+      const p = localStorage.getItem('semkit_user_profile') || localStorage.getItem('ignitext_user_profile') || localStorage.getItem('semkit_profile');
+      if (p) profile = JSON.parse(p);
+    } catch(e) {}
 
     async function loadRegulations() {
       const { data: regData } = await supabase
@@ -49,7 +78,15 @@ export default function Browse() {
         
       setRegulations(regData || []);
       if (regData && regData.length > 0) {
-        setSelectedReg(regData[regData.length - 1]?.id || regData[0].id); // Select latest regulation
+        if (profile?.reg_id) {
+          const match = regData.find(r => r.id === profile.reg_id);
+          setSelectedReg(match ? match.id : (regData[regData.length - 1]?.id || regData[0].id));
+        } else if (profile?.reg_code) {
+          const match = regData.find(r => r.code?.toUpperCase() === profile.reg_code?.toUpperCase());
+          setSelectedReg(match ? match.id : (regData[regData.length - 1]?.id || regData[0].id));
+        } else {
+          setSelectedReg(regData[regData.length - 1]?.id || regData[0].id); // Select latest regulation
+        }
       } else {
         setSelectedReg('');
       }

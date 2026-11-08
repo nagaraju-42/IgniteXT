@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import {
   SearchIcon,
@@ -10,7 +10,9 @@ import {
   Loader2Icon,
   AlertCircleIcon,
   SparklesIcon,
-  XIcon
+  XIcon,
+  ClockIcon,
+  FlameIcon
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { OnboardingModal, StudentProfile } from '@/components/OnboardingModal';
@@ -28,6 +30,7 @@ export default function Home() {
   const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [lastRead, setLastRead] = useState<LastReadState | null>(null);
+  const [examTimetable, setExamTimetable] = useState<any>({});
   const [loading, setLoading] = useState<boolean>(true);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [isOffline, setIsOffline] = useState<boolean>(false);
@@ -36,7 +39,7 @@ export default function Home() {
 
   const loadProfile = () => {
     try {
-      const saved = localStorage.getItem('semkit_profile') || localStorage.getItem('ignitext_profile');
+      const saved = localStorage.getItem('semkit_user_profile') || localStorage.getItem('ignitext_user_profile') || localStorage.getItem('semkit_profile');
       if (saved) {
         const parsed = JSON.parse(saved);
         setProfile(parsed);
@@ -61,6 +64,31 @@ export default function Home() {
         setLastRead(null);
       }
     } catch (e) {}
+  };
+
+  const loadExamTimetable = async () => {
+    // 1. Instantly from localStorage
+    try {
+      const local = localStorage.getItem('semkit_exam_timetable_v2');
+      if (local) setExamTimetable(JSON.parse(local));
+    } catch(e) {}
+
+    // 2. Fetch live official timetable from Superadmin settings
+    if (typeof navigator !== 'undefined' && navigator.onLine) {
+      try {
+        const { data } = await supabase
+          .from('platform_settings')
+          .select('value')
+          .eq('key', 'exam_timetable_v2')
+          .maybeSingle();
+
+        if (data && data.value) {
+          const parsed = JSON.parse(data.value);
+          setExamTimetable(parsed);
+          localStorage.setItem('semkit_exam_timetable_v2', JSON.stringify(parsed));
+        }
+      } catch(err) {}
+    }
   };
 
   const fetchSubjectsForSpace = async (regId: string, branchId: string, sem: number) => {
@@ -95,11 +123,11 @@ export default function Home() {
     window.addEventListener('offline', setOff);
 
     loadLastRead();
+    loadExamTimetable();
 
     const currentProfile = loadProfile();
 
     if (!currentProfile) {
-      // If no profile, prompt setup first
       setIsModalOpen(true);
       setLoading(false);
     } else {
@@ -114,10 +142,12 @@ export default function Home() {
     };
 
     const handleLastReadChange = () => loadLastRead();
+    const handleTimetableChange = () => loadExamTimetable();
 
     window.addEventListener('semkit_profile_changed', handleProfileChange);
     window.addEventListener('ignitext_profile_changed', handleProfileChange);
     window.addEventListener('semkit_last_read_updated', handleLastReadChange);
+    window.addEventListener('semkit_timetable_updated', handleTimetableChange);
 
     return () => {
       window.removeEventListener('online', setOnline);
@@ -125,8 +155,73 @@ export default function Home() {
       window.removeEventListener('semkit_profile_changed', handleProfileChange);
       window.removeEventListener('ignitext_profile_changed', handleProfileChange);
       window.removeEventListener('semkit_last_read_updated', handleLastReadChange);
+      window.removeEventListener('semkit_timetable_updated', handleTimetableChange);
     };
   }, []);
+
+  // Compute live exam countdown for a subject
+  const getSubjectExamStatus = (sub: Subject) => {
+    const codeKey = (sub.code || '').toUpperCase().trim();
+    const nameKey = (sub.name || '').toLowerCase().trim();
+    const flat = examTimetable.flatLookup || {};
+    const cfg = flat[codeKey] || flat[nameKey] || flat[sub.id] || null;
+
+    if (!cfg) return null;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const dates = [
+      { type: 'Mid-1', dateStr: cfg.mid1_date },
+      { type: 'Mid-2', dateStr: cfg.mid2_date },
+      { type: 'Final', dateStr: cfg.sem_exam_date }
+    ].filter(d => d.dateStr);
+
+    let nearest: { type: string; dateStr: string; diffDays: number } | null = null;
+
+    for (const d of dates) {
+      const examDate = new Date(`${d.dateStr}T00:00:00`);
+      const diffTime = examDate.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      if (diffDays >= 0) {
+        if (!nearest || diffDays < nearest.diffDays) {
+          nearest = { type: d.type, dateStr: d.dateStr, diffDays };
+        }
+      }
+    }
+
+    if (!nearest) {
+      if (dates.length > 0) {
+        return { status: 'completed', text: 'Exam Finished', diffDays: -1 };
+      }
+      return null;
+    }
+
+    if (nearest.diffDays === 0) {
+      return { status: 'today', text: `🔥 ${nearest.type} Today!`, diffDays: 0, type: nearest.type };
+    }
+    if (nearest.diffDays === 1) {
+      return { status: 'tomorrow', text: `⏳ ${nearest.type} Tomorrow`, diffDays: 1, type: nearest.type };
+    }
+    return { status: 'upcoming', text: `⏳ ${nearest.type} in ${nearest.diffDays} Days`, diffDays: nearest.diffDays, type: nearest.type };
+  };
+
+  // Automatically sort subjects so the nearest upcoming exam is #1 at the top
+  const sortedSubjects = useMemo(() => {
+    return [...subjects].sort((a, b) => {
+      const examA = getSubjectExamStatus(a);
+      const examB = getSubjectExamStatus(b);
+
+      if (examA && !examB) return -1;
+      if (!examA && examB) return 1;
+      if (!examA && !examB) return a.name.localeCompare(b.name);
+
+      if (examA!.status === 'completed' && examB!.status !== 'completed') return 1;
+      if (examA!.status !== 'completed' && examB!.status === 'completed') return -1;
+
+      return examA!.diffDays - examB!.diffDays;
+    });
+  }, [subjects, examTimetable]);
 
   return (
     <div className="px-[18px] pt-4 pb-8">
@@ -178,61 +273,32 @@ export default function Home() {
         <div className="border-[2px] border-[var(--ink)] bg-[#D7E600]/25 rounded-2xl p-3.5 mb-5 shadow-[3px_3px_0_var(--ink)] flex items-center justify-between gap-3 animate-in fade-in duration-200">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5 mb-0.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse"></span>
-              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-[var(--ink)]">
-                Resume Last Read
+              <SparklesIcon className="w-3.5 h-3.5 text-[var(--ink)]" />
+              <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[var(--ink)]">
+                Resume Reading
               </span>
             </div>
-            <div className="font-bold text-[13.5px] text-[var(--ink)] leading-snug truncate">
+            <div className="font-bold text-[13.5px] text-[var(--ink)] truncate leading-tight">
               {lastRead.title}
             </div>
-            <div className="text-[11px] font-mono text-[var(--ink-soft)] mt-0.5">
-              Page {lastRead.page} of {lastRead.total} · Continue where you left off
+            <div className="font-mono text-[10.5px] text-[var(--ink-soft)] mt-0.5 flex items-center gap-1.5">
+              <span className="font-bold text-[var(--ink)]">Page {lastRead.page}</span>
+              {lastRead.total > 0 && <span>of {lastRead.total}</span>}
             </div>
           </div>
-          <div className="flex items-center gap-1.5 shrink-0">
-            <Link
-              href={`/read?file=${encodeURIComponent(lastRead.file)}&title=${encodeURIComponent(lastRead.title)}&page=${lastRead.page}`}
-              className="bg-[var(--ink)] text-[var(--paper)] font-bold text-[11.5px] px-3.5 py-2.5 rounded-xl flex items-center gap-1 active:scale-95 shadow-xs transition-all cursor-pointer"
-            >
-              <span>Resume</span>
-              <ChevronRightIcon className="w-3.5 h-3.5" />
-            </Link>
-            <button
-              onClick={() => {
-                localStorage.removeItem('semkit_last_read');
-                setLastRead(null);
-              }}
-              className="w-7 h-7 flex items-center justify-center text-[var(--ink-faint)] hover:text-[var(--ink)] transition-colors rounded-lg cursor-pointer"
-              title="Dismiss"
-            >
-              <XIcon className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* If No Profile Configured: Prompt Card */}
-      {!profile && (
-        <div className="border-[2px] border-[var(--ink)] rounded-2xl p-4 bg-[#D7E600]/15 mb-6 shadow-[3px_3px_0_var(--ink)]">
-          <div className="flex items-center gap-2 mb-1.5">
-            <SparklesIcon className="w-4 h-4 text-[var(--ink)]" />
-            <h2 className="font-bold text-[14.5px] text-[var(--ink)]">Personalize Your Space</h2>
-          </div>
-          <p className="text-[12px] text-[var(--ink-soft)] mb-3 leading-relaxed">
-            Set up your profile once with your hall ticket, regulation, branch & semester to view your exact subjects automatically.
-          </p>
           <button
-            onClick={() => setIsModalOpen(true)}
-            className="w-full bg-[#D7E600] text-[var(--ink)] font-bold text-[13px] py-2.5 rounded-xl border-[1.5px] border-[var(--ink)] shadow-[2px_2px_0_var(--ink)] flex items-center justify-center gap-1.5 hover:translate-y-[1px] transition-all cursor-pointer"
+            onClick={() => {
+              window.location.href = `/read?file=${encodeURIComponent(lastRead.file)}&title=${encodeURIComponent(lastRead.title)}&page=${lastRead.page}`;
+            }}
+            className="bg-[var(--ink)] text-[var(--paper)] font-bold text-[11.5px] px-3.5 py-2 rounded-xl shadow-xs active:scale-95 transition-all flex items-center gap-1 shrink-0 cursor-pointer"
           >
-            <span>Set Up My Space</span>
+            <span>Resume</span>
             <ChevronRightIcon className="w-4 h-4" />
           </button>
         </div>
       )}
 
-      {/* YOUR SEMESTER SUBJECTS Section */}
+      {/* YOUR SEMESTER SUBJECTS Section (Auto-Sorted with Live Countdown) */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
@@ -255,31 +321,53 @@ export default function Home() {
               Loading semester subjects...
             </p>
           </div>
-        ) : profile && subjects.length > 0 ? (
+        ) : profile && sortedSubjects.length > 0 ? (
           <div className="flex flex-col gap-2.5">
-            {subjects.map((sub) => (
-              <Link
-                key={sub.id}
-                href={`/subject?id=${sub.id}`}
-                className="border-[1.5px] border-[var(--rule-strong)] rounded-xl p-3.5 bg-[var(--paper)] flex justify-between items-center hover:border-[var(--ink)] hover:shadow-sm transition-all group"
-              >
-                <div className="flex-1 min-w-0 pr-3">
-                  <div className="font-bold text-[14px] text-[var(--ink)] leading-snug truncate group-hover:underline">
-                    {sub.name}
+            {sortedSubjects.map((sub) => {
+              const examStatus = getSubjectExamStatus(sub);
+
+              return (
+                <Link
+                  key={sub.id}
+                  href={`/subject?id=${sub.id}`}
+                  className="border-[1.5px] border-[var(--rule-strong)] rounded-xl p-3.5 bg-[var(--paper)] flex justify-between items-center hover:border-[var(--ink)] hover:shadow-sm transition-all group"
+                >
+                  <div className="flex-1 min-w-0 pr-3">
+                    <div className="font-bold text-[14px] text-[var(--ink)] leading-snug truncate group-hover:underline">
+                      {sub.name}
+                    </div>
+                    <div className="font-mono text-[11px] text-[var(--ink-soft)] mt-1.5 flex flex-wrap items-center gap-1.5">
+                      <span className="bg-[var(--paper-deep)] border border-[var(--rule-strong)] px-2 py-0.5 rounded text-[var(--ink)] font-semibold text-[10px]">
+                        {sub.code || 'SUB'}
+                      </span>
+                      <span>·</span>
+                      <span>{sub.total_units || 5} units</span>
+
+                      {/* Live Exam Countdown Badge */}
+                      {examStatus && (
+                        <>
+                          <span>·</span>
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                            examStatus.status === 'today'
+                              ? 'bg-red-500 text-white border-red-600 animate-pulse'
+                              : examStatus.status === 'tomorrow'
+                              ? 'bg-amber-400 text-black border-amber-600'
+                              : examStatus.status === 'completed'
+                              ? 'bg-zinc-200 text-zinc-600 border-zinc-300'
+                              : 'bg-[#D7E600] text-[var(--ink)] border-[var(--ink)]'
+                          }`}>
+                            {examStatus.text}
+                          </span>
+                        </>
+                      )}
+                    </div>
                   </div>
-                  <div className="font-mono text-[11px] text-[var(--ink-soft)] mt-1.5 flex items-center gap-2">
-                    <span className="bg-[var(--paper-deep)] border border-[var(--rule-strong)] px-2 py-0.5 rounded text-[var(--ink)] font-semibold text-[10px]">
-                      {sub.code || 'SUB'}
-                    </span>
-                    <span>·</span>
-                    <span>{sub.total_units || 5} units</span>
+                  <div className="w-9 h-9 rounded-xl bg-[var(--paper-deep)] border border-[var(--rule-strong)] flex items-center justify-center group-hover:bg-[var(--ink)] group-hover:text-[var(--paper)] transition-colors shrink-0">
+                    <GridIcon className="w-4 h-4" />
                   </div>
-                </div>
-                <div className="w-9 h-9 rounded-xl bg-[var(--paper-deep)] border border-[var(--rule-strong)] flex items-center justify-center group-hover:bg-[var(--ink)] group-hover:text-[var(--paper)] transition-colors shrink-0">
-                  <GridIcon className="w-4 h-4" />
-                </div>
-              </Link>
-            ))}
+                </Link>
+              );
+            })}
           </div>
         ) : profile ? (
           <div className="border-[1.5px] border-dashed border-[var(--rule-strong)] rounded-xl p-6 bg-[var(--paper)] flex flex-col items-center justify-center text-center gap-2">
