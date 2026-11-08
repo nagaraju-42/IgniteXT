@@ -167,65 +167,41 @@ export default function AdminUpload() {
           title: autoTitle
         });
 
-        // 3. Request signed upload URL from Edge Function
-        const { data: functionData, error: functionError } = await supabase.functions.invoke('get-upload-url', {
-          body: { fileName: cleanR2Path, contentType: file.type || 'application/pdf' }
+        // 3. Upload file directly via Server API (streams to R2 and publishes to Supabase with 0 CORS issues)
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('subjectId', subjectId);
+        formData.append('materialType', materialType);
+        if (unitNumber) formData.append('unitNumber', unitNumber.toString());
+        if (derivedUnitTitle) formData.append('unitTitle', derivedUnitTitle);
+        if (materialType === 'pyq') {
+          formData.append('examYear', (parseInt(unitOrYear) || new Date().getFullYear()).toString());
+        }
+        formData.append('userId', userId);
+        formData.append('autoTitle', autoTitle);
+        formData.append('cleanR2Path', cleanR2Path);
+
+        const isApkOrCapacitor = typeof window !== 'undefined' && (
+          window.location.protocol === 'capacitor:' || 
+          window.location.protocol === 'file:' || 
+          (window.location.hostname === 'localhost' && window.location.port !== '3000')
+        );
+        const apiEndpoint = isApkOrCapacitor 
+          ? 'https://ignite-xt-topaz.vercel.app/api/admin/upload' 
+          : '/api/admin/upload';
+
+        const uploadRes = await fetch(apiEndpoint, {
+          method: 'POST',
+          body: formData,
         });
 
-        if (functionError) throw new Error(functionError.message || `Failed to get upload URL for ${autoTitle}`);
-
-        const { uploadUrl, key } = functionData;
-
-        // 4. PUT file directly to Cloudflare R2
-        try {
-          const uploadRes = await fetch(uploadUrl, {
-            method: 'PUT',
-            body: file,
-            headers: {
-              'Content-Type': file.type || 'application/pdf',
-            },
-          });
-
-          if (!uploadRes.ok) {
-            throw new Error(`Cloudflare R2 returned HTTP ${uploadRes.status}: ${uploadRes.statusText}`);
-          }
-        } catch (fetchErr: any) {
-          console.error('R2 PUT error:', fetchErr);
-          throw new Error(
-            'R2_CORS_ERROR: Cloudflare R2 bucket "ignitext-pdfs" rejected browser preflight request. Please add a CORS policy in Cloudflare Dashboard.'
-          );
+        if (!uploadRes.ok) {
+          const errData = await uploadRes.json().catch(() => ({}));
+          throw new Error(errData.error || `Upload failed with status HTTP ${uploadRes.status}`);
         }
 
-        // 5. Insert metadata into Supabase content_items table
-        const { data: dbData, error: dbError } = await supabase
-          .from('content_items')
-          .insert({
-            subject_id: subjectId,
-            uploaded_by: userId,
-            type: materialType === 'notes' ? 'note' : materialType === 'pyq' ? 'pyq' : 'imp',
-            title: autoTitle,
-            unit_number: unitNumber,
-            unit_title: materialType === 'notes' ? derivedUnitTitle : null,
-            exam_year: materialType === 'pyq' ? (parseInt(unitOrYear) || new Date().getFullYear()) : null,
-            file_url: key,
-            file_size_kb: Math.round(file.size / 1024),
-            status: initialStatus
-          })
-          .select()
-          .single();
-
-        if (dbError) throw dbError;
-
-        completedTitles.push(autoTitle);
-
-        // Log upload activity
-        await supabase.from('admin_activity_log').insert({
-          admin_id: userId,
-          action: 'UPLOAD_CONTENT',
-          target_type: 'content_items',
-          target_id: dbData.id,
-          meta: { title: autoTitle, subject_id: subjectId, r2_key: key }
-        }).catch(() => {});
+        const resData = await uploadRes.json();
+        completedTitles.push(resData.title || autoTitle);
       }
 
       setUploadedTitles(completedTitles);
