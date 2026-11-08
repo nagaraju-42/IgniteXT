@@ -271,22 +271,24 @@ export const OfflineManager = {
 
   cleanNoteTitle(rawTitle: string): string {
     let title = (rawTitle || '').replace(/^null\s+/, '').trim();
-    // If it's a raw UUID filename like "09b8670b-95c9-4ad6-bc91-babe2ec253aa-Unit 1.pdf"
-    if (/^[0-9a-f]{8}-[0-9a-f]{4}/i.test(title)) {
-      title = title.replace(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-?/i, '');
-    }
+    // Strip raw UUID hashes (both hyphenated "09b8670b-95c9-..." and space-separated "09b8670b 95c9 4ad6 bc91 babe2ec253 aa")
+    title = title.replace(/^[0-9a-f]{8}[-\s][0-9a-f]{4}[-\s][0-9a-f]{4}[-\s][0-9a-f]{4}[-\s][0-9a-f]{2,12}[-\s]?/i, '');
+    title = title.replace(/^[0-9a-f]{8,36}[-\s]?/i, '');
     title = title.replace(/\.(pdf|docx?|pptx?)$/i, '');
-    title = decodeURIComponent(title).replace(/[-_]/g, ' ').trim();
+    title = decodeURIComponent(title).replace(/[-_]/g, ' ').replace(/\s+/g, ' ').trim();
 
     // If title was just a year like "2025"
     if (/^20[2-3][0-9]$/.test(title)) {
       return `${title} Question Paper (PYQ)`;
     }
-    if (title.toLowerCase().includes('mid paper')) {
-      return '2025 Mid Examination Papers';
+    if (title.toLowerCase().includes('mid paper') || title.toLowerCase().includes('mid examination')) {
+      return title.includes('20') ? title : `2025 Mid Examination Papers`;
     }
     if (title.toLowerCase().includes('sem') && !title.toLowerCase().includes('semester')) {
-      return '2025 Semester Exam Paper';
+      return `${title} Semester Exam Paper`;
+    }
+    if (/^unit\s*[1-5]$/i.test(title)) {
+      return `${title.toUpperCase()} Lecture Notes`;
     }
 
     return title || 'Lecture Notes';
@@ -425,7 +427,7 @@ export const OfflineManager = {
     return files;
   },
 
-  saveMetadata(filename: string, title: string, sizeKb?: number, subjectName?: string) {
+  saveMetadata(filename: string, title: string, sizeKb?: number, subjectName?: string, isPyq?: boolean) {
     const files = this.getDownloadedFiles();
     const cleanFn = decodeURIComponent(filename);
     const existingIndex = files.findIndex((f: any) => 
@@ -447,16 +449,21 @@ export const OfflineManager = {
       cleanTitle = resolved.title;
     }
 
+    const detectedPyq = isPyq !== undefined 
+      ? isPyq 
+      : (/pyq|question|mid|sem|20[2-3][0-9]/i.test(cleanTitle || '') || /pyq|question|mid|sem|20[2-3][0-9]/i.test(cleanFn));
+
     const newEntry = { 
       filename: cleanFn, 
       title: cleanTitle || title, 
       subjectName: inferredSubject || 'General Notes',
       sizeKb: sizeKb || 0, 
+      isPyq: detectedPyq,
       downloadedAt: Date.now() 
     };
     
     if (existingIndex >= 0) {
-      files[existingIndex] = newEntry;
+      files[existingIndex] = { ...files[existingIndex], ...newEntry };
     } else {
       files.push(newEntry);
     }

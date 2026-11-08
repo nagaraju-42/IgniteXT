@@ -13,9 +13,10 @@ interface OfflineButtonProps {
   title: string;
   sizeKb?: number;
   subjectName?: string;
+  isPyq?: boolean;
 }
 
-export function OfflineButton({ contentId, fileUrl, title, sizeKb, subjectName }: OfflineButtonProps) {
+export function OfflineButton({ contentId, fileUrl, title, sizeKb, subjectName, isPyq }: OfflineButtonProps) {
   const [status, setStatus] = useState<'checking' | 'not_downloaded' | 'downloading' | 'downloaded'>('checking');
   const [showTipJar, setShowTipJar] = useState(false);
   const filename = OfflineManager.getFileName(fileUrl);
@@ -116,7 +117,7 @@ export function OfflineButton({ contentId, fileUrl, title, sizeKb, subjectName }
       
       const path = await OfflineManager.downloadFile(getOnlineUrl(), filename);
       if (path) {
-        OfflineManager.saveMetadata(filename, title, sizeKb, subjectName);
+        OfflineManager.saveMetadata(filename, title, sizeKb, subjectName, isPyq);
         setStatus('downloaded');
         setShowTipJar(true);
       } else {

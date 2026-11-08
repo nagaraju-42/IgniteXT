@@ -109,7 +109,7 @@ function SubjectContent() {
           : `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL || DEFAULT_R2_URL}/${item.file_url}`;
         await OfflineManager.downloadFile(fullUrl, fn);
       }
-      OfflineManager.saveMetadata(fn, item.title, item.file_size_kb, subject?.name);
+      OfflineManager.saveMetadata(fn, item.title, item.file_size_kb, subject?.name, item.type === 'pyq');
     }
 
     setIsDownloadingPack(false);
@@ -569,7 +569,7 @@ function SubjectContent() {
                       </div>
                     </div>
                     <div className="flex flex-col gap-1 items-center shrink-0">
-                      <OfflineButton contentId={pyq.id} fileUrl={pyq.file_url} title={pyq.title} sizeKb={pyq.file_size_kb} subjectName={subject?.name} />
+                      <OfflineButton contentId={pyq.id} fileUrl={pyq.file_url} title={pyq.title} sizeKb={pyq.file_size_kb} subjectName={subject?.name} isPyq={true} />
                       <ReportButton contentId={pyq.id} />
                     </div>
                   </div>
