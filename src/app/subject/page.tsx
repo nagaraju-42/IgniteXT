@@ -56,7 +56,7 @@ function SubjectContent() {
   const [pyqs, setPyqs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [initChecked, setInitChecked] = useState(false);
-  const [isPyqOpen, setIsPyqOpen] = useState(true);
+  const [isPyqOpen, setIsPyqOpen] = useState(false);
   
   // Real-time map of which files are downloaded: filename -> boolean
   const [downloadedMap, setDownloadedMap] = useState<Record<string, boolean>>({});
@@ -383,10 +383,41 @@ function SubjectContent() {
     }
   };
 
-  // Open file in in-app reader
-  const handleOpenInApp = (fileUrl: string, title: string) => {
+  // Open file in in-app reader, automatically downloading first if not yet cached offline
+  const handleOpenInApp = async (item: any, displayTitle: string) => {
+    if (!item || !item.file_url) return;
+    const fileUrl = item.file_url;
     const fn = OfflineManager.getFileName(fileUrl);
-    router.push(`/read?file=${encodeURIComponent(fn)}&title=${encodeURIComponent(title)}`);
+    const title = displayTitle || item.title || 'Lecture Note';
+
+    // Check if already downloaded
+    const alreadyDownloaded = await OfflineManager.isFileDownloaded(fn);
+    if (alreadyDownloaded) {
+      router.push(`/read?file=${encodeURIComponent(fn)}&title=${encodeURIComponent(title)}`);
+      return;
+    }
+
+    // Auto-download first with active progress spinner
+    try {
+      setDownloadingMap(prev => ({ ...prev, [fn]: true }));
+      const fullUrl = fileUrl.startsWith('http') 
+        ? fileUrl 
+        : `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL || DEFAULT_R2_URL}/${fileUrl}`;
+
+      await OfflineManager.downloadFile(fullUrl, fn);
+      OfflineManager.saveMetadata(fn, title, item.file_size_kb, subject?.name, item.type === 'pyq');
+      
+      setDownloadedMap(prev => ({ ...prev, [fn]: true, [fileUrl]: true }));
+      setDownloadingMap(prev => ({ ...prev, [fn]: false }));
+
+      // Navigate to reader immediately after download completes
+      router.push(`/read?file=${encodeURIComponent(fn)}&title=${encodeURIComponent(title)}`);
+    } catch (err) {
+      console.error('Failed to auto-download PDF:', err);
+      setDownloadingMap(prev => ({ ...prev, [fn]: false }));
+      // Fallback navigation
+      router.push(`/read?file=${encodeURIComponent(fn)}&title=${encodeURIComponent(title)}`);
+    }
   };
 
   // Open in external app
@@ -617,7 +648,7 @@ function SubjectContent() {
                     return (
                       <div
                         key={pyq.id}
-                        onClick={() => handleOpenInApp(pyq.file_url, pyqTitle)}
+                        onClick={() => handleOpenInApp(pyq, pyqTitle)}
                         className="border-2 border-[#1C1B17] rounded-xl bg-white p-3 shadow-[2px_2px_0_#1C1B17] flex flex-col justify-between min-h-[140px] cursor-pointer active:scale-[0.98] transition-all hover:bg-[#FAF9F5]"
                       >
                         {/* Thumbnail & Title */}
@@ -635,13 +666,17 @@ function SubjectContent() {
 
                         {/* Status & Action */}
                         <div className="mt-2 pt-2 border-t border-[#1C1B17]/15 flex items-center justify-between">
-                          {isDownloaded ? (
+                          {isDownloading ? (
+                            <span className="font-mono text-[9px] font-black bg-amber-200 text-amber-950 px-2 py-0.5 rounded border border-amber-800 flex items-center gap-1">
+                              <Loader2Icon className="w-2.5 h-2.5 animate-spin" /> Downloading...
+                            </span>
+                          ) : isDownloaded ? (
                             <span className="font-mono text-[9px] font-black bg-[#EFECE1] text-[#1C1B17] px-2 py-0.5 rounded border border-[#1C1B17]">
                               Saved Offline
                             </span>
                           ) : (
                             <span className="font-mono text-[9px] font-bold text-[#1C1B17]/60">
-                              Online
+                              Tap to Read
                             </span>
                           )}
 
@@ -739,7 +774,7 @@ function SubjectContent() {
                       return (
                         <div
                           key={note.id || noteIdx}
-                          onClick={() => handleOpenInApp(note.file_url, displayTitle)}
+                          onClick={() => handleOpenInApp(note, displayTitle)}
                           className="border-2 border-[#1C1B17] rounded-2xl p-3.5 bg-[#FAF9F5] shadow-[3px_3px_0_#1C1B17] flex items-center justify-between gap-3 cursor-pointer hover:bg-white active:scale-[0.99] transition-all"
                         >
                           {/* Left: Square Lime Icon Badge */}
@@ -755,7 +790,19 @@ function SubjectContent() {
                             <div className="font-mono text-[10.5px] text-[#1C1B17]/60 font-semibold mt-0.5 flex items-center gap-2">
                               <span>{sizeMb} MB</span>
                               <span>·</span>
-                              <span className="font-sans font-bold text-[#1C1B17]/80">Tap Card to Read</span>
+                              {isDownloading ? (
+                                <span className="font-sans font-bold text-amber-800 flex items-center gap-1">
+                                  <Loader2Icon className="w-3 h-3 animate-spin inline" /> Downloading & Opening...
+                                </span>
+                              ) : isDownloaded ? (
+                                <span className="font-sans font-bold text-emerald-700 flex items-center gap-1">
+                                  <CheckCircle2Icon className="w-3.5 h-3.5 inline text-emerald-600" /> Saved Offline · Tap to Read
+                                </span>
+                              ) : (
+                                <span className="font-sans font-bold text-[#1C1B17]/80">
+                                  Tap to Read (Auto-downloads)
+                                </span>
+                              )}
                             </div>
                           </div>
 

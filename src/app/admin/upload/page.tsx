@@ -177,16 +177,23 @@ export default function AdminUpload() {
         const { uploadUrl, key } = functionData;
 
         // 4. PUT file directly to Cloudflare R2
-        const uploadRes = await fetch(uploadUrl, {
-          method: 'PUT',
-          body: file,
-          headers: {
-            'Content-Type': file.type || 'application/pdf',
-          },
-        });
+        try {
+          const uploadRes = await fetch(uploadUrl, {
+            method: 'PUT',
+            body: file,
+            headers: {
+              'Content-Type': file.type || 'application/pdf',
+            },
+          });
 
-        if (!uploadRes.ok) {
-          throw new Error(`Failed to upload ${autoTitle} to storage`);
+          if (!uploadRes.ok) {
+            throw new Error(`Cloudflare R2 returned HTTP ${uploadRes.status}: ${uploadRes.statusText}`);
+          }
+        } catch (fetchErr: any) {
+          console.error('R2 PUT error:', fetchErr);
+          throw new Error(
+            'R2_CORS_ERROR: Cloudflare R2 bucket "ignitext-pdfs" rejected browser preflight request. Please add a CORS policy in Cloudflare Dashboard.'
+          );
         }
 
         // 5. Insert metadata into Supabase content_items table
@@ -293,11 +300,61 @@ export default function AdminUpload() {
       
       <div className="flex-1 overflow-y-auto px-[18px] py-6 bg-[var(--paper)] max-w-xl mx-auto w-full">
         
-        {error && (
+        {error && error.includes('R2_CORS_ERROR') ? (
+          <div className="bg-[#FAF9F5] border-2 border-[var(--ink)] p-4 rounded-2xl mb-6 shadow-[3px_3px_0_var(--ink)]">
+            <div className="flex items-center gap-2 text-red-600 font-black text-[14px] mb-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-red-600 animate-pulse"></span>
+              Cloudflare R2 CORS Setup Required
+            </div>
+            <p className="text-[12px] text-[var(--ink-soft)] leading-relaxed mb-3">
+              Web browsers block direct uploads to Cloudflare R2 until a <strong>CORS Policy</strong> is saved in Cloudflare.
+            </p>
+            <div className="bg-[var(--paper)] border border-[var(--rule)] rounded-xl p-3 text-[11.5px] font-mono text-[var(--ink)] mb-3 flex flex-col gap-1.5">
+              <div className="font-bold text-[12px] font-sans">Quick 3-step fix in Cloudflare Dashboard:</div>
+              <div>1. Go to <strong>Cloudflare Dashboard → R2 → ignitext-pdfs → Settings</strong></div>
+              <div>2. Scroll to <strong>CORS Policy</strong> → click <strong>Add CORS policy</strong></div>
+              <div>3. Paste the configuration below and click <strong>Save</strong>:</div>
+            </div>
+            <div className="relative mb-3">
+              <pre className="bg-[#1C1B17] text-[#C8E600] font-mono text-[10.5px] p-3 rounded-xl overflow-x-auto">
+{`[
+  {
+    "AllowedOrigins": ["https://ignite-xt-topaz.vercel.app", "http://localhost:3000", "*"],
+    "AllowedMethods": ["GET", "PUT", "POST", "HEAD"],
+    "AllowedHeaders": ["*"],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3600
+  }
+]`}
+              </pre>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(JSON.stringify([
+                    {
+                      "AllowedOrigins": ["https://ignite-xt-topaz.vercel.app", "http://localhost:3000", "*"],
+                      "AllowedMethods": ["GET", "PUT", "POST", "HEAD"],
+                      "AllowedHeaders": ["*"],
+                      "ExposeHeaders": ["ETag"],
+                      "MaxAgeSeconds": 3600
+                    }
+                  ], null, 2));
+                  alert('CORS JSON copied to clipboard! Paste it into Cloudflare Dashboard -> R2 -> ignitext-pdfs -> Settings -> CORS Policy.');
+                }}
+                className="absolute top-2 right-2 bg-[#C8E600] text-[#1C1B17] font-bold text-[10px] px-2.5 py-1 rounded-md border border-[#1C1B17] shadow-sm hover:scale-105 active:scale-95 transition-all"
+              >
+                Copy JSON
+              </button>
+            </div>
+            <div className="text-[11px] text-[var(--ink-soft)] font-medium">
+              💡 <strong>Instant Terminal Alternative:</strong> Run <code className="bg-[var(--paper)] px-1.5 py-0.5 rounded border border-[var(--rule)] font-mono font-bold">npm run upload -- &quot;path/to/notes.pdf&quot; &quot;{derivedShortCode || 'CIS'}&quot; notes 1</code> in your terminal to upload immediately without CORS.
+            </div>
+          </div>
+        ) : error ? (
           <div className="bg-[var(--red-bg)] text-[var(--red)] p-3.5 rounded-xl border border-[var(--red)] text-[13px] font-bold mb-5 shadow-xs">
             {error}
           </div>
-        )}
+        ) : null}
 
         {/* Feature Banner */}
         <div className="border-[2px] border-[var(--ink)] rounded-2xl p-4 bg-[#D7E600]/25 shadow-[3px_3px_0_var(--ink)] mb-6 flex items-start gap-3">

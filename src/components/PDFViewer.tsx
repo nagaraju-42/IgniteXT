@@ -107,18 +107,51 @@ export default function PDFViewer() {
         const { Filesystem, Directory } = await import('@capacitor/filesystem');
         const { Capacitor } = await import('@capacitor/core');
         
-        const result = await Filesystem.readFile({
-          path: `pdf_cache/${file}`,
-          directory: Directory.Data
-        });
+        let fileData: any = null;
+        try {
+          const result = await Filesystem.readFile({
+            path: `pdf_cache/${file}`,
+            directory: Directory.Data
+          });
+          fileData = result.data;
+        } catch (readErr) {
+          // Fallback: auto-fetch and cache if not yet stored locally
+          const defaultR2 = 'https://pub-fba885359a4d40d6bd6e89575d51f9ca.r2.dev';
+          const remoteUrl = file.startsWith('http') 
+            ? file 
+            : `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL || defaultR2}/${file}`;
+
+          const res = await fetch(remoteUrl);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const blob = await res.blob();
+          
+          const reader = new FileReader();
+          const base64Promise = new Promise<string>((resolve) => {
+            reader.onloadend = () => {
+              const resStr = reader.result as string;
+              resolve(resStr.split(',')[1] || resStr);
+            };
+          });
+          reader.readAsDataURL(blob);
+          const b64 = await base64Promise;
+          
+          await Filesystem.writeFile({
+            path: `pdf_cache/${file}`,
+            data: b64,
+            directory: Directory.Data,
+            recursive: true
+          }).catch(() => {});
+
+          fileData = b64;
+        }
 
         if (Capacitor.isNativePlatform()) {
-          setDataUri(`data:application/pdf;base64,${result.data}`);
+          setDataUri(`data:application/pdf;base64,${fileData}`);
         } else {
-          if (result.data instanceof Blob) {
-            setDataUri(URL.createObjectURL(result.data));
+          if (fileData instanceof Blob) {
+            setDataUri(URL.createObjectURL(fileData));
           } else {
-            setDataUri(`data:application/pdf;base64,${result.data}`);
+            setDataUri(`data:application/pdf;base64,${fileData}`);
           }
         }
       } catch (err) {
