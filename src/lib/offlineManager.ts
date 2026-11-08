@@ -23,15 +23,22 @@ export const OfflineManager = {
     const cleanFn = decodeURIComponent(filename || '').toLowerCase().trim();
     const rawFn = (filename || '').toLowerCase().trim();
     
-    // 1. Fast metadata check from localStorage
+    // Check deleted cache first
+    try {
+      const deletedList: string[] = JSON.parse(localStorage.getItem('semkit_deleted_cache') || '[]');
+      if (deletedList.some(d => d.toLowerCase().trim() === cleanFn || d.toLowerCase().trim() === rawFn)) {
+        return false;
+      }
+    } catch(e) {}
+
+    // Fast metadata check from localStorage
     const metaFiles = this.getDownloadedFiles();
     const inMeta = metaFiles.some((f: any) => {
       const fName = decodeURIComponent(f.filename || '').toLowerCase().trim();
       const orig = (f.filename || '').toLowerCase().trim();
-      return fName === cleanFn || orig === rawFn || fName === rawFn || orig === cleanFn;
+      return fName === cleanFn || orig === rawFn || fName === rawFn || orig === cleanFn || fName.endsWith('/' + cleanFn) || cleanFn.endsWith('/' + fName);
     });
     
-    // If not in metadata, it is not saved offline (or was deleted by the user)
     return inMeta;
   },
 
@@ -65,7 +72,7 @@ export const OfflineManager = {
       // Resilient fallback: fetch blob and write to filesystem directly
       try {
         const res = await fetch(url);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!okStatus(res.status)) throw new Error(`HTTP ${res.status}`);
         const blob = await res.blob();
         
         const base64Data = await new Promise<string>((resolve, reject) => {
@@ -99,39 +106,50 @@ export const OfflineManager = {
   async openNativeFile(filename: string): Promise<boolean> {
     const cleanFn = decodeURIComponent(filename);
     try {
-      const { Capacitor } = await import('@capacitor/core');
-      if (Capacitor.getPlatform() === 'web') {
-        const uri = await this.getOfflineFileDataUri(cleanFn);
-        if (uri) {
-           window.open(uri, '_blank');
-           return true;
-        }
-        return false;
-      }
-      
       const { FileOpener } = await import('@capacitor-community/file-opener');
-      let uriResult;
-      try {
-        uriResult = await Filesystem.getUri({
+      const { Capacitor } = await import('@capacitor/core');
+
+      if (Capacitor.isNativePlatform()) {
+        const fileUri = await Filesystem.getUri({
           path: `pdf_cache/${cleanFn}`,
           directory: Directory.Data
         });
-      } catch {
-        uriResult = await Filesystem.getUri({
-          path: `pdf_cache/${filename}`,
-          directory: Directory.Data
+
+        await FileOpener.open({
+          filePath: fileUri.uri,
+          contentType: 'application/pdf',
+          openWithDefault: false
         });
+        return true;
+      } else {
+        const dataUri = await this.getOfflineFileDataUri(cleanFn);
+        if (dataUri) {
+          const win = window.open();
+          if (win) {
+            win.document.write(
+              `<iframe src="${dataUri}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`
+            );
+            return true;
+          }
+        }
       }
-      await FileOpener.open({ filePath: uriResult.uri });
-      return true;
-    } catch (error) {
-      console.error('Failed to open native file:', error);
-      return false;
+    } catch (e) {
+      console.error('FileOpener failed, attempting data URI fallback:', e);
+      try {
+        const dataUri = await this.getOfflineFileDataUri(cleanFn);
+        if (dataUri) {
+          window.open(dataUri, '_blank');
+          return true;
+        }
+      } catch (fallbackErr) {
+        console.error('Fallback failed too:', fallbackErr);
+      }
     }
+    return false;
   },
 
   /**
-   * Reads an offline file and returns it as a Base64 Data URI so it can be viewed in an iframe
+   * Retrieves an offline file as a Data URI (Base64)
    */
   async getOfflineFileDataUri(filename: string): Promise<string | null> {
     const cleanFn = decodeURIComponent(filename);
@@ -142,7 +160,7 @@ export const OfflineManager = {
           path: `pdf_cache/${cleanFn}`,
           directory: Directory.Data,
         });
-      } catch {
+      } catch (firstErr) {
         result = await Filesystem.readFile({
           path: `pdf_cache/${filename}`,
           directory: Directory.Data,
@@ -163,10 +181,20 @@ export const OfflineManager = {
   },
 
   /**
-   * Deletes an offline file
+   * Deletes an offline file and removes it permanently from metadata & disk
    */
   async deleteFile(filename: string) {
-    const cleanFn = decodeURIComponent(filename);
+    const cleanFn = decodeURIComponent(filename).trim();
+    const rawFn = (filename || '').trim();
+    
+    // Add to deleted cache to prevent resurrecting
+    try {
+      const deletedList: string[] = JSON.parse(localStorage.getItem('semkit_deleted_cache') || '[]');
+      if (!deletedList.includes(cleanFn)) deletedList.push(cleanFn);
+      if (!deletedList.includes(rawFn)) deletedList.push(rawFn);
+      localStorage.setItem('semkit_deleted_cache', JSON.stringify(deletedList));
+    } catch(e) {}
+
     try {
       await Filesystem.deleteFile({
         path: `pdf_cache/${cleanFn}`,
@@ -175,15 +203,19 @@ export const OfflineManager = {
     } catch (e) {
       try {
         await Filesystem.deleteFile({
-          path: `pdf_cache/${filename}`,
+          path: `pdf_cache/${rawFn}`,
           directory: Directory.Data,
         });
       } catch (e2) {}
     }
+
     this.removeMetadata(cleanFn);
-    this.removeMetadata(filename);
+    this.removeMetadata(rawFn);
+
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('offline_files_changed', { detail: { filename: cleanFn, action: 'deleted' } }));
+      window.dispatchEvent(new CustomEvent('offline_file_deleted', { detail: { filename: cleanFn } }));
+      window.dispatchEvent(new Event('storage'));
     }
     return true;
   },
@@ -255,7 +287,7 @@ export const OfflineManager = {
 
   cleanNoteTitle(rawTitle: string): string {
     let title = (rawTitle || '').replace(/^null\s+/, '').trim();
-    // Strip raw UUID hashes (both hyphenated "09b8670b-95c9-..." and space-separated "09b8670b 95c9 4ad6 bc91 babe2ec253 aa")
+    // Strip raw UUID hashes
     title = title.replace(/^[0-9a-f]{8}[-\s][0-9a-f]{4}[-\s][0-9a-f]{4}[-\s][0-9a-f]{4}[-\s][0-9a-f]{2,12}[-\s]?/i, '');
     title = title.replace(/^[0-9a-f]{8,36}[-\s]?/i, '');
     title = title.replace(/\.(pdf|docx?|pptx?)$/i, '');
@@ -279,10 +311,15 @@ export const OfflineManager = {
   },
 
   /**
-   * Resilient offline sync that NEVER deletes existing files and NEVER hangs on offline network
+   * Resilient offline sync that NEVER re-adds deleted files
    */
   async syncAndGetFiles() {
     let files = this.getDownloadedFiles();
+    let deletedCache: string[] = [];
+    try {
+      deletedCache = JSON.parse(localStorage.getItem('semkit_deleted_cache') || '[]');
+    } catch(e) {}
+
     try {
       const { Filesystem, Directory } = await import('@capacitor/filesystem');
       const res = await Filesystem.readdir({
@@ -291,16 +328,6 @@ export const OfflineManager = {
       });
 
       if (res && res.files) {
-        // Collect disk file names
-        const diskNamesMap = new Map<string, any>();
-        for (const df of res.files) {
-          const fn = typeof df === 'string' ? df : df.name;
-          diskNamesMap.set(fn, df);
-          try {
-            diskNamesMap.set(decodeURIComponent(fn), df);
-          } catch(e) {}
-        }
-
         // Only query Supabase IF online with strict 2s timeout
         let dbItemsMap: Record<string, { title: string; subjectName: string }> = {};
         if (typeof navigator !== 'undefined' && navigator.onLine) {
@@ -346,12 +373,21 @@ export const OfflineManager = {
           }
         }
 
-        // Check each disk file: if it's not yet in our metadata list, add it!
+        // Check each disk file
         for (const diskFile of res.files) {
           const fname = typeof diskFile === 'string' ? diskFile : diskFile.name;
           if (!fname.toLowerCase().endsWith('.pdf')) continue;
 
-          const cleanFname = decodeURIComponent(fname);
+          const cleanFname = decodeURIComponent(fname).trim();
+          
+          // If this file was deleted by user, purge it and do NOT add to metadata
+          if (deletedCache.some(d => d.toLowerCase() === fname.toLowerCase() || d.toLowerCase() === cleanFname.toLowerCase())) {
+            try {
+              await Filesystem.deleteFile({ path: `pdf_cache/${fname}`, directory: Directory.Data });
+            } catch(e) {}
+            continue;
+          }
+
           let entry = files.find((f: any) => 
             f.filename === fname || 
             f.filename === cleanFname ||
@@ -412,8 +448,16 @@ export const OfflineManager = {
   },
 
   saveMetadata(filename: string, title: string, sizeKb?: number, subjectName?: string, isPyq?: boolean) {
+    const cleanFn = decodeURIComponent(filename).trim();
+    
+    // Remove from deleted cache if present
+    try {
+      const deletedList: string[] = JSON.parse(localStorage.getItem('semkit_deleted_cache') || '[]');
+      const filtered = deletedList.filter(d => d.toLowerCase() !== cleanFn.toLowerCase() && d.toLowerCase() !== filename.toLowerCase());
+      localStorage.setItem('semkit_deleted_cache', JSON.stringify(filtered));
+    } catch(e) {}
+
     const files = this.getDownloadedFiles();
-    const cleanFn = decodeURIComponent(filename);
     const existingIndex = files.findIndex((f: any) => 
       f.filename === filename || 
       decodeURIComponent(f.filename || '').toLowerCase() === cleanFn.toLowerCase()
@@ -455,17 +499,32 @@ export const OfflineManager = {
     localStorage.setItem('ignitext_offline_files', JSON.stringify(files));
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('offline_files_changed', { detail: { filename: cleanFn, action: 'saved' } }));
+      window.dispatchEvent(new Event('storage'));
     }
   },
 
   removeMetadata(filename: string) {
-    const cleanFn = decodeURIComponent(filename).toLowerCase();
+    if (!filename) return;
+    const cleanFn = decodeURIComponent(filename).toLowerCase().trim();
+    const rawFn = (filename || '').toLowerCase().trim();
     const files = this.getDownloadedFiles();
     const filtered = files.filter((f: any) => {
-      const fName = decodeURIComponent(f.filename || '').toLowerCase();
-      return fName !== cleanFn && f.filename !== filename;
+      const fName = decodeURIComponent(f.filename || '').toLowerCase().trim();
+      const orig = (f.filename || '').toLowerCase().trim();
+      return (
+        fName !== cleanFn && 
+        orig !== rawFn && 
+        fName !== rawFn && 
+        orig !== cleanFn &&
+        !fName.endsWith('/' + cleanFn) &&
+        !cleanFn.endsWith('/' + fName)
+      );
     });
     localStorage.setItem('semkit_offline_files', JSON.stringify(filtered));
     localStorage.setItem('ignitext_offline_files', JSON.stringify(filtered));
   }
 };
+
+function okStatus(status: number): boolean {
+  return status >= 200 && status < 300;
+}

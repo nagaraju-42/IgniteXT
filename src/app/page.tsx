@@ -7,11 +7,13 @@ import {
   GridIcon,
   BookIcon,
   ChevronRightIcon,
+  ChevronDownIcon,
   Loader2Icon,
   AlertCircleIcon,
   SparklesIcon,
   XIcon,
   ClockIcon,
+  CheckCircle2Icon,
   FlameIcon
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
@@ -34,12 +36,16 @@ export default function Home() {
   const [loading, setLoading] = useState<boolean>(true);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [isOffline, setIsOffline] = useState<boolean>(false);
+  const [isCompletedOpen, setIsCompletedOpen] = useState<boolean>(false);
 
   const supabase = createClient();
 
   const loadProfile = () => {
     try {
-      const saved = localStorage.getItem('semkit_user_profile') || localStorage.getItem('ignitext_user_profile') || localStorage.getItem('semkit_profile');
+      const saved = localStorage.getItem('semkit_user_profile') || 
+                    localStorage.getItem('semkit_profile') || 
+                    localStorage.getItem('ignitext_user_profile') || 
+                    localStorage.getItem('ignitext_profile');
       if (saved) {
         const parsed = JSON.parse(saved);
         setProfile(parsed);
@@ -67,13 +73,11 @@ export default function Home() {
   };
 
   const loadExamTimetable = async () => {
-    // 1. Instantly from localStorage
     try {
       const local = localStorage.getItem('semkit_exam_timetable_v2');
       if (local) setExamTimetable(JSON.parse(local));
     } catch(e) {}
 
-    // 2. Fetch live official timetable from Superadmin settings
     if (typeof navigator !== 'undefined' && navigator.onLine) {
       try {
         const { data } = await supabase
@@ -207,8 +211,20 @@ export default function Home() {
   };
 
   // Automatically sort subjects so the nearest upcoming exam is #1 at the top
-  const sortedSubjects = useMemo(() => {
-    return [...subjects].sort((a, b) => {
+  const { activeSubjects, completedSubjects } = useMemo(() => {
+    const active: Subject[] = [];
+    const completed: Subject[] = [];
+
+    subjects.forEach(s => {
+      const status = getSubjectExamStatus(s);
+      if (status?.status === 'completed') {
+        completed.push(s);
+      } else {
+        active.push(s);
+      }
+    });
+
+    active.sort((a, b) => {
       const examA = getSubjectExamStatus(a);
       const examB = getSubjectExamStatus(b);
 
@@ -216,11 +232,10 @@ export default function Home() {
       if (!examA && examB) return 1;
       if (!examA && !examB) return a.name.localeCompare(b.name);
 
-      if (examA!.status === 'completed' && examB!.status !== 'completed') return 1;
-      if (examA!.status !== 'completed' && examB!.status === 'completed') return -1;
-
       return examA!.diffDays - examB!.diffDays;
     });
+
+    return { activeSubjects: active, completedSubjects: completed };
   }, [subjects, examTimetable]);
 
   return (
@@ -321,9 +336,9 @@ export default function Home() {
               Loading semester subjects...
             </p>
           </div>
-        ) : profile && sortedSubjects.length > 0 ? (
+        ) : profile && activeSubjects.length > 0 ? (
           <div className="flex flex-col gap-2.5">
-            {sortedSubjects.map((sub) => {
+            {activeSubjects.map((sub) => {
               const examStatus = getSubjectExamStatus(sub);
 
               return (
@@ -352,8 +367,6 @@ export default function Home() {
                               ? 'bg-red-500 text-white border-red-600 animate-pulse'
                               : examStatus.status === 'tomorrow'
                               ? 'bg-amber-400 text-black border-amber-600'
-                              : examStatus.status === 'completed'
-                              ? 'bg-zinc-200 text-zinc-600 border-zinc-300'
                               : 'bg-[#D7E600] text-[var(--ink)] border-[var(--ink)]'
                           }`}>
                             {examStatus.text}
@@ -369,7 +382,7 @@ export default function Home() {
               );
             })}
           </div>
-        ) : profile ? (
+        ) : profile && completedSubjects.length === 0 ? (
           <div className="border-[1.5px] border-dashed border-[var(--rule-strong)] rounded-xl p-6 bg-[var(--paper)] flex flex-col items-center justify-center text-center gap-2">
             <AlertCircleIcon className="w-6 h-6 text-[var(--ink-soft)]" />
             <p className="text-[13px] font-bold text-[var(--ink)]">
@@ -386,6 +399,43 @@ export default function Home() {
             </Link>
           </div>
         ) : null}
+
+        {/* Collapsed Completed Exams Section */}
+        {completedSubjects.length > 0 && (
+          <div className="mt-4 border border-[var(--rule-strong)] rounded-xl bg-[var(--paper-deep)]/50 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setIsCompletedOpen(prev => !prev)}
+              className="w-full p-3 flex items-center justify-between text-left hover:bg-[var(--paper-deep)] transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-2">
+                <CheckCircle2Icon className="w-4 h-4 text-zinc-500" />
+                <span className="font-bold text-[12px] text-[var(--ink-soft)] uppercase tracking-wider">
+                  Completed Exams ({completedSubjects.length})
+                </span>
+              </div>
+              <ChevronDownIcon className={`w-4 h-4 text-[var(--ink-soft)] transition-transform duration-200 ${isCompletedOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {isCompletedOpen && (
+              <div className="p-3 pt-0 flex flex-col gap-2 border-t border-[var(--rule)]">
+                {completedSubjects.map(sub => (
+                  <Link
+                    key={sub.id}
+                    href={`/subject?id=${sub.id}`}
+                    className="border border-[var(--rule)] rounded-lg p-3 bg-[var(--paper)] opacity-70 hover:opacity-100 flex justify-between items-center transition-opacity"
+                  >
+                    <div>
+                      <div className="font-semibold text-[13px] text-[var(--ink)]">{sub.name}</div>
+                      <div className="font-mono text-[10px] text-zinc-500 mt-0.5">{sub.code || 'SUB'} · Exam Finished</div>
+                    </div>
+                    <ChevronRightIcon className="w-4 h-4 text-zinc-400" />
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Continue Browsing Banner */}
@@ -398,24 +448,24 @@ export default function Home() {
             Continue browsing
           </div>
           <div className="text-[11px] text-[var(--ink-soft)] mt-0.5">
-            Filter by university, regulation, branch & semester
+            Explore notes from other regulations, branches and semesters
           </div>
         </div>
-        <ChevronRightIcon className="w-5 h-5 text-[var(--ink-soft)] group-hover:text-[var(--ink)] group-hover:translate-x-0.5 transition-all" />
+        <div className="w-8 h-8 rounded-full border border-[var(--rule-strong)] flex items-center justify-center group-hover:border-[var(--ink)] transition-colors">
+          <ChevronRightIcon className="w-4 h-4 text-[var(--ink-soft)] group-hover:text-[var(--ink)] group-hover:translate-x-0.5 transition-all" />
+        </div>
       </Link>
 
-      {/* Onboarding Modal */}
+      {/* Modal */}
       <OnboardingModal
         isOpen={isModalOpen}
-        onClose={() => {
-          if (profile) setIsModalOpen(false);
-        }}
-        initialProfile={profile}
+        onClose={() => setIsModalOpen(false)}
         onSave={(newProfile) => {
           setProfile(newProfile);
           setIsModalOpen(false);
           fetchSubjectsForSpace(newProfile.reg_id, newProfile.branch_id, newProfile.sem);
         }}
+        initialProfile={profile}
       />
     </div>
   );

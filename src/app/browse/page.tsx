@@ -15,20 +15,26 @@ export default function Browse() {
   const [selectedUni, setSelectedUni] = useState<string>('');
   const [selectedReg, setSelectedReg] = useState<string>('');
   const [selectedBranch, setSelectedBranch] = useState<string>('');
-  const [selectedSem, setSelectedSem] = useState<number>(5); // Default to 3-1 (sem 5)
+  const [selectedSem, setSelectedSem] = useState<number>(7); // Default to sem 7
   const [loading, setLoading] = useState(true);
 
   const supabase = createClient();
 
+  const getProfile = () => {
+    try {
+      const p = localStorage.getItem('semkit_user_profile') || 
+                localStorage.getItem('semkit_profile') || 
+                localStorage.getItem('ignitext_user_profile') || 
+                localStorage.getItem('ignitext_profile');
+      if (p) return JSON.parse(p);
+    } catch(e) {}
+    return null;
+  };
+
   // Load universities & branches initially with student's profile defaults
   useEffect(() => {
-    let profile: any = null;
-    try {
-      const p = localStorage.getItem('semkit_user_profile') || localStorage.getItem('ignitext_user_profile') || localStorage.getItem('semkit_profile');
-      if (p) profile = JSON.parse(p);
-    } catch(e) {}
-
     async function loadInitialData() {
+      const profile = getProfile();
       const { data: uniData } = await supabase.from('universities').select('*').eq('is_active', true).order('sort_order');
       const { data: branchData } = await supabase.from('branches').select('*').eq('is_active', true).order('sort_order');
       
@@ -56,17 +62,31 @@ export default function Browse() {
       }
     }
     loadInitialData();
-  }, []);
+
+    const handleProfileSync = () => {
+      const profile = getProfile();
+      if (!profile) return;
+      if (profile.sem) setSelectedSem(Number(profile.sem));
+      if (profile.branch_id) setSelectedBranch(profile.branch_id);
+      if (profile.reg_id) setSelectedReg(profile.reg_id);
+    };
+
+    window.addEventListener('semkit_profile_changed', handleProfileSync);
+    window.addEventListener('ignitext_profile_changed', handleProfileSync);
+    window.addEventListener('storage', handleProfileSync);
+
+    return () => {
+      window.removeEventListener('semkit_profile_changed', handleProfileSync);
+      window.removeEventListener('ignitext_profile_changed', handleProfileSync);
+      window.removeEventListener('storage', handleProfileSync);
+    };
+  }, [supabase]);
 
   // Fetch regulations when university changes, pre-selecting student's space regulation
   useEffect(() => {
     if (!selectedUni) return;
 
-    let profile: any = null;
-    try {
-      const p = localStorage.getItem('semkit_user_profile') || localStorage.getItem('ignitext_user_profile') || localStorage.getItem('semkit_profile');
-      if (p) profile = JSON.parse(p);
-    } catch(e) {}
+    const profile = getProfile();
 
     async function loadRegulations() {
       const { data: regData } = await supabase
@@ -92,7 +112,7 @@ export default function Browse() {
       }
     }
     loadRegulations();
-  }, [selectedUni]);
+  }, [selectedUni, supabase]);
 
   // Fetch subjects whenever filters change
   useEffect(() => {
@@ -113,11 +133,11 @@ export default function Browse() {
       setLoading(false);
     }
     fetchSubjects();
-  }, [selectedReg, selectedBranch, selectedSem]);
+  }, [selectedReg, selectedBranch, selectedSem, supabase]);
 
   return (
-    <div className="px-[18px] pt-4 pb-8 flex flex-col h-full">
-      <h1 className="font-bold text-[19px] mb-4">Browse Subjects</h1>
+    <div className="px-[18px] pt-4 pb-8 flex flex-col h-full bg-[var(--paper)]">
+      <h1 className="font-bold text-[19px] mb-4 text-[var(--ink)]">Browse Subjects</h1>
       
       {/* Filters */}
       <div className="flex flex-col gap-3 mb-6">
@@ -149,7 +169,7 @@ export default function Browse() {
                 onClick={() => setSelectedReg(reg.id)}
                 className={`font-mono text-[11px] border-[1.5px] rounded-full px-3 py-1 cursor-pointer whitespace-nowrap transition-colors ${
                   selectedReg === reg.id
-                    ? 'border-[var(--ink)] bg-[var(--hl)] text-[var(--hl-ink)] font-semibold'
+                    ? 'border-[var(--ink)] bg-[var(--ink)] text-[var(--paper)] font-semibold'
                     : 'border-[var(--rule-strong)] text-[var(--ink-soft)] hover:bg-[var(--paper-card)]'
                 }`}
               >
@@ -168,7 +188,7 @@ export default function Browse() {
                 onClick={() => setSelectedBranch(branch.id)}
                 className={`font-mono text-[11px] border-[1.5px] rounded-full px-3 py-1 cursor-pointer whitespace-nowrap transition-colors ${
                   selectedBranch === branch.id
-                    ? 'border-[var(--ink)] bg-[var(--hl)] text-[var(--hl-ink)] font-semibold'
+                    ? 'border-[var(--ink)] bg-[var(--ink)] text-[var(--paper)] font-semibold'
                     : 'border-[var(--rule-strong)] text-[var(--ink-soft)] hover:bg-[var(--paper-card)]'
                 }`}
               >
@@ -180,51 +200,69 @@ export default function Browse() {
 
         <div>
           <p className="text-[11px] font-semibold text-[var(--ink-soft)] mb-2 uppercase tracking-wide">Semester</p>
-          <div className="flex gap-2 flex-wrap">
+          <div className="grid grid-cols-8 gap-1.5">
             {[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => (
-              <div 
+              <button
                 key={sem}
+                type="button"
                 onClick={() => setSelectedSem(sem)}
-                className={`font-mono text-[11px] border-[1.5px] rounded-full px-3 py-1 cursor-pointer transition-colors ${
-                  selectedSem === sem 
-                    ? 'border-[var(--ink)] bg-[var(--paper)] text-[var(--ink)] font-semibold' 
-                    : 'border-[var(--rule-strong)] text-[var(--ink-soft)] hover:bg-[var(--paper-card)]'
+                className={`font-mono text-[12px] h-8 rounded-lg border-[1.5px] flex items-center justify-center transition-all cursor-pointer ${
+                  selectedSem === sem
+                    ? 'border-[var(--ink)] bg-[var(--ink)] text-[var(--paper)] font-bold shadow-xs'
+                    : 'border-[var(--rule-strong)] bg-[var(--paper)] text-[var(--ink-soft)] hover:border-[var(--ink)]'
                 }`}
               >
-                {Math.ceil(sem/2)}-{sem%2===0?2:1}
-              </div>
+                {sem}
+              </button>
             ))}
           </div>
         </div>
       </div>
 
-      <div className="flex-1 bg-[var(--paper)] border-[1.5px] border-[var(--rule-strong)] rounded-xl overflow-hidden flex flex-col">
-        <div className="bg-[var(--paper-deep)] px-3 py-2 border-b-[1.5px] border-[var(--rule-strong)] font-semibold text-[12px] flex justify-between items-center">
-          <span>Subjects</span>
-          <span className="text-[var(--ink-soft)] font-normal flex items-center gap-2">
-            {loading && <Loader2Icon className="w-3.5 h-3.5 animate-spin" />}
-            {subjects.length} total
-          </span>
+      {/* Subjects List */}
+      <div>
+        <div className="flex justify-between items-center mb-3">
+          <p className="text-[11px] font-semibold text-[var(--ink-soft)] uppercase tracking-wide">
+            Subjects ({subjects.length})
+          </p>
         </div>
-        
-        <div className="flex flex-col divide-y divide-[var(--rule)] overflow-y-auto">
-          {!loading && subjects.length === 0 && (
-             <div className="p-8 flex flex-col items-center justify-center text-center gap-2">
-                <AlertCircleIcon className="w-6 h-6 text-[var(--ink-faint)]" />
-                <p className="text-[13px] text-[var(--ink-soft)] font-medium">No subjects found for this selection.</p>
-             </div>
-          )}
 
-          {subjects.map((subject) => (
-            <Link key={subject.id} href={`/subject?id=${subject.id}`} className="flex items-center justify-between p-3 hover:bg-[var(--paper-deep)] transition-colors group">
-              <div>
-                <div className="font-semibold text-[13.5px] group-hover:text-[var(--hl-ink)] transition-colors">{subject.name}</div>
-                <div className="text-[10.5px] text-[var(--ink-soft)] mt-0.5">{subject.code} · {subject.total_units} Units</div>
-              </div>
-              <ChevronRightIcon className="w-4 h-4 text-[var(--ink-faint)] group-hover:text-[var(--ink)] transition-colors" />
-            </Link>
-          ))}
-        </div>
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-12 text-[var(--ink-soft)]">
+            <Loader2Icon className="w-5 h-5 animate-spin mb-2 text-[var(--ink)]" />
+            <p className="text-[12px] font-medium">Loading subjects...</p>
+          </div>
+        ) : subjects.length > 0 ? (
+          <div className="flex flex-col gap-2.5">
+            {subjects.map((sub) => (
+              <Link 
+                key={sub.id} 
+                href={`/subject?id=${sub.id}`}
+                className="border-[1.5px] border-[var(--rule-strong)] rounded-xl p-3.5 bg-[var(--paper)] flex justify-between items-center hover:border-[var(--ink)] hover:shadow-xs transition-all group"
+              >
+                <div className="flex-1 min-w-0 pr-3">
+                  <div className="font-semibold text-[13.5px] leading-snug group-hover:underline text-[var(--ink)]">
+                    {sub.name}
+                  </div>
+                  <div className="font-mono text-[10.5px] text-[var(--ink-soft)] mt-1 flex gap-2">
+                    {sub.code && <span>{sub.code}</span>}
+                    <span>•</span>
+                    <span>{sub.total_units || 5} units</span>
+                  </div>
+                </div>
+                <ChevronRightIcon className="w-4 h-4 text-[var(--ink-faint)] group-hover:text-[var(--ink)] group-hover:translate-x-0.5 transition-all shrink-0" />
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <div className="border-[1.5px] border-dashed border-[var(--rule-strong)] rounded-xl p-8 bg-[var(--paper)] flex flex-col items-center justify-center text-center">
+            <AlertCircleIcon className="w-6 h-6 text-[var(--ink-soft)] mb-2" />
+            <div className="font-semibold text-[13px] text-[var(--ink)]">No subjects found</div>
+            <div className="text-[11px] text-[var(--ink-soft)] mt-1 max-w-[220px]">
+              No syllabus mapped yet for this regulation, branch and semester.
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
