@@ -17,6 +17,7 @@ import {
 import { createClient } from '@/lib/supabase/client';
 import type { StudentProfile } from '@/components/OnboardingModal';
 import { deriveSubjectShortCode } from '@/lib/subjectNaming';
+import { readStudentSpaceProfile } from '@/components/web/WebSpaceCard';
 
 export function WebNavbar() {
   const pathname = usePathname();
@@ -34,22 +35,7 @@ export function WebNavbar() {
   const searchWrapRef = useRef<HTMLDivElement>(null);
 
   const loadProfile = () => {
-    try {
-      const saved =
-        localStorage.getItem('semkit_profile') ||
-        localStorage.getItem('ignitext_profile') ||
-        localStorage.getItem('semkit_user_profile');
-      if (saved) {
-        setProfile(JSON.parse(saved));
-        return;
-      }
-      const match = document.cookie.match(/(?:^|; )(?:semkit_profile|ignitext_profile)=([^;]*)/);
-      if (match && match[1]) {
-        setProfile(JSON.parse(decodeURIComponent(match[1])));
-      }
-    } catch {
-      // Ignore profile parse issues
-    }
+    setProfile(readStudentSpaceProfile());
   };
 
   useEffect(() => {
@@ -136,8 +122,12 @@ export function WebNavbar() {
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const q = searchQuery.trim();
     setSearchFocused(false);
+    if (!profile) {
+      router.push('/#web-set-space');
+      return;
+    }
+    const q = searchQuery.trim();
     router.push(q ? `/search?q=${encodeURIComponent(q)}` : '/search');
   };
 
@@ -204,7 +194,15 @@ export function WebNavbar() {
           {/* Live Autocomplete Dropdown */}
           {searchFocused && searchQuery.trim() && (
             <div className="absolute left-0 right-0 top-[calc(100%+6px)] bg-[var(--paper)] border-2 border-[var(--ink)] rounded-2xl shadow-[4px_4px_0_var(--ink)] overflow-hidden z-50 text-[var(--ink)]">
-              {quickMatches.length > 0 ? (
+              {!profile ? (
+                <button
+                  type="button"
+                  onClick={handleSearchSubmit}
+                  className="w-full px-4 py-3 text-left text-[12.5px] font-bold hover:bg-[#D7E600]/25 cursor-pointer flex items-center justify-between"
+                >
+                  <span>Set up your Space first to unlock search →</span>
+                </button>
+              ) : quickMatches.length > 0 ? (
                 <div className="divide-y divide-[var(--rule)]">
                   {quickMatches.map((sub) => {
                     const code = deriveSubjectShortCode(sub.name, sub.code);
@@ -281,7 +279,7 @@ export function WebNavbar() {
                 ? `${profile.roll}`
                 : profile
                 ? `${profile.branch_code || 'CSE'} · Sem ${profile.sem}`
-                : 'R22 · Profile'}
+                : 'Enter Roll No'}
             </span>
           </Link>
 

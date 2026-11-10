@@ -7,6 +7,7 @@ import { HeaderBar } from '@/components/HeaderBar';
 import { BottomNav } from '@/components/BottomNav';
 import { FeedbackWidget } from '@/components/FeedbackWidget';
 import { WebNavbar } from '@/components/web/WebNavbar';
+import { WebSpaceGuard } from '@/components/web/WebSpaceGuard';
 import { useIsNativeApp } from '@/lib/useIsNativeApp';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -33,6 +34,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // 2. RESPONSIVE ONLINE WEBSITE SHELL (Desktop Laptop & Mobile Web)
   // =========================================================================
   const isReaderRoute = pathname.startsWith('/read') || pathname.startsWith('/subject');
+  const requiresSpaceSetup =
+    pathname.startsWith('/browse') ||
+    pathname.startsWith('/search') ||
+    pathname.startsWith('/saved') ||
+    pathname.startsWith('/subject') ||
+    pathname.startsWith('/read');
   const isCenteredUtilityRoute =
     pathname.startsWith('/admin') ||
     pathname.startsWith('/community') ||
@@ -49,6 +56,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="w-full max-w-3xl mx-auto px-2 sm:px-6 py-4 flex-1 flex flex-col">
             {children}
           </div>
+        ) : requiresSpaceSetup ? (
+          <WebSpaceGuard>{children}</WebSpaceGuard>
         ) : (
           children
         )}
