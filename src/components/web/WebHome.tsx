@@ -19,6 +19,7 @@ import {
 import { createClient } from '@/lib/supabase/client';
 import { OnboardingModal, type StudentProfile } from '@/components/OnboardingModal';
 import { WebSpaceCard, readStudentSpaceProfile } from '@/components/web/WebSpaceCard';
+import { WebApkDownloadCard } from '@/components/web/WebApkDownloadCard';
 import type { Subject } from '@/lib/types';
 import { DEFAULT_EXAM_TIMETABLE } from '@/lib/defaultExamTimetable';
 import { fetchSyncedExamTimetable, getSubjectExamStatus } from '@/lib/examCountdown';
@@ -256,14 +257,17 @@ export function WebHome() {
           <p className="text-[12.5px] font-bold text-[var(--ink-soft)]">Checking your space...</p>
         </div>
       ) : !profile ? (
-        <WebSpaceCard
-          onSave={(newProf) => {
-            setProfile(newProf);
-            setSpaceWarning(null);
-          }}
-          attentionMessage={spaceWarning}
-          rollInputRef={rollInputRef}
-        />
+        <div className="flex flex-col gap-6">
+          <WebSpaceCard
+            onSave={(newProf) => {
+              setProfile(newProf);
+              setSpaceWarning(null);
+            }}
+            attentionMessage={spaceWarning}
+            rollInputRef={rollInputRef}
+          />
+          <WebApkDownloadCard />
+        </div>
       ) : (
         <>
           {/* Resume Reading Strip (when user has prior reading progress) */}
@@ -463,7 +467,7 @@ export function WebHome() {
           {/* Continue Browsing Banner */}
           <Link
             href="/browse"
-            className="border-2 border-[var(--rule-strong)] hover:border-[var(--ink)] rounded-2xl p-4 bg-[var(--paper-card)] hover:bg-[var(--paper-deep)] flex items-center justify-between gap-3 transition-all"
+            className="border-2 border-[var(--rule-strong)] hover:border-[var(--ink)] rounded-2xl p-4 bg-[var(--paper-card)] hover:bg-[var(--paper-deep)] flex items-center justify-between gap-3 transition-all mb-6"
           >
             <div>
               <div className="font-bold text-[14.5px] text-[var(--ink)]">Continue browsing</div>
@@ -475,6 +479,8 @@ export function WebHome() {
               <ChevronRightIcon className="w-4 h-4 text-[var(--ink)]" />
             </div>
           </Link>
+
+          <WebApkDownloadCard />
         </>
       )}
 

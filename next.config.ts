@@ -21,6 +21,14 @@ const nextConfig: NextConfig = {
         async rewrites() {
           return [
             {
+              source: '/SemKit.apk',
+              destination: `${r2PublicBase}/releases/SemKit.apk`,
+            },
+            {
+              source: '/semkit.apk',
+              destination: `${r2PublicBase}/releases/SemKit.apk`,
+            },
+            {
               source: '/r2/:path*',
               destination: `${r2PublicBase}/:path*`,
             },
