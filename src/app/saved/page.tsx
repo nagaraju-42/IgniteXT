@@ -16,6 +16,8 @@ import {
 import { OfflineManager } from "@/lib/offlineManager";
 import { useRouter } from "next/navigation";
 import { deriveSubjectShortCode } from "@/lib/subjectNaming";
+import { useIsNativeApp } from "@/lib/useIsNativeApp";
+import { WebSaved } from "@/components/web/WebSaved";
 
 interface SavedFileItem {
   filename: string;
@@ -28,6 +30,11 @@ interface SavedFileItem {
 }
 
 export default function Saved() {
+  const nativeMode = useIsNativeApp();
+  return nativeMode ? <ApkSaved /> : <WebSaved />;
+}
+
+function ApkSaved() {
   const [files, setFiles] = useState<SavedFileItem[]>([]);
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<'all' | 'notes' | 'pyq'>('all');

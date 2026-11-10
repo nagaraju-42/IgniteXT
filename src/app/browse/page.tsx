@@ -5,8 +5,15 @@ import Link from "next/link";
 import { ChevronRightIcon, AlertCircleIcon, Loader2Icon } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { University, Regulation, Branch, Subject } from "@/lib/types";
+import { useIsNativeApp } from "@/lib/useIsNativeApp";
+import { WebBrowse } from "@/components/web/WebBrowse";
 
 export default function Browse() {
+  const nativeMode = useIsNativeApp();
+  return nativeMode ? <ApkBrowse /> : <WebBrowse />;
+}
+
+function ApkBrowse() {
   const [universities, setUniversities] = useState<University[]>([]);
   const [regulations, setRegulations] = useState<Regulation[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);

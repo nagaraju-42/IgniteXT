@@ -7,7 +7,22 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { deriveSubjectShortCode } from "@/lib/subjectNaming";
 
+import { Suspense } from "react";
+import { useIsNativeApp } from "@/lib/useIsNativeApp";
+import { WebSearch } from "@/components/web/WebSearch";
+
 export default function Search() {
+  const nativeMode = useIsNativeApp();
+  return nativeMode ? (
+    <ApkSearch />
+  ) : (
+    <Suspense fallback={<div className="p-12 text-center text-[var(--ink-soft)]">Loading search...</div>}>
+      <WebSearch />
+    </Suspense>
+  );
+}
+
+function ApkSearch() {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [subjects, setSubjects] = useState<any[]>([]);

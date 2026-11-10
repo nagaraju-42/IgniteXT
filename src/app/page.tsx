@@ -20,6 +20,8 @@ import { createClient } from '@/lib/supabase/client';
 import { OnboardingModal, StudentProfile } from '@/components/OnboardingModal';
 import type { Subject } from '@/lib/types';
 import { DEFAULT_EXAM_TIMETABLE } from '@/lib/defaultExamTimetable';
+import { useIsNativeApp } from '@/lib/useIsNativeApp';
+import { WebHome } from '@/components/web/WebHome';
 
 interface LastReadState {
   file: string;
@@ -30,6 +32,11 @@ interface LastReadState {
 }
 
 export default function Home() {
+  const nativeMode = useIsNativeApp();
+  return nativeMode ? <ApkHome /> : <WebHome />;
+}
+
+function ApkHome() {
   const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [lastRead, setLastRead] = useState<LastReadState | null>(null);

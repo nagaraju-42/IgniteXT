@@ -21,6 +21,8 @@ import { getUnitColor } from "@/lib/colorUtils";
 import { OfflineManager } from "@/lib/offlineManager";
 import { deriveSubjectShortCode } from "@/lib/subjectNaming";
 import { DEFAULT_EXAM_TIMETABLE } from "@/lib/defaultExamTimetable";
+import { useIsNativeApp } from "@/lib/useIsNativeApp";
+import { WebSubject } from "@/components/web/WebSubject";
 
 const DEFAULT_R2_URL = 'https://pub-fba885359a4d40d6bd6e89575d51f9ca.r2.dev';
 
@@ -859,9 +861,11 @@ function SubjectContent() {
 }
 
 export default function SubjectPage() {
+  const nativeMode = useIsNativeApp();
+
   return (
     <Suspense fallback={<div className="p-8 text-center bg-[#EFECE1] min-h-screen">Loading...</div>}>
-      <SubjectContent />
+      {nativeMode ? <SubjectContent /> : <WebSubject />}
     </Suspense>
   );
 }

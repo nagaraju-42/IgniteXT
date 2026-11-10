@@ -3,24 +3,28 @@ import fs from 'fs';
 import path from 'path';
 
 console.log('Preparing static export for Android APK...');
-const apiAdminDir = path.resolve('src/app/api/admin');
-const tempDir = path.resolve('.temp_api_admin');
+const apiDir = path.resolve('src/app/api');
+const tempApiDir = path.resolve('.temp_api');
 
 let moved = false;
-if (fs.existsSync(apiAdminDir)) {
-  fs.renameSync(apiAdminDir, tempDir);
+if (fs.existsSync(apiDir)) {
+  fs.renameSync(apiDir, tempApiDir);
   moved = true;
 }
 
 try {
-  console.log('Building static export (NEXT_EXPORT=true)...');
+  console.log('Building static export (NEXT_EXPORT=true, NEXT_PUBLIC_IS_APK_BUILD=true)...');
   execSync('npx next build --webpack', {
     stdio: 'inherit',
-    env: { ...process.env, NEXT_EXPORT: 'true' }
+    env: {
+      ...process.env,
+      NEXT_EXPORT: 'true',
+      NEXT_PUBLIC_IS_APK_BUILD: 'true',
+    },
   });
 } finally {
-  if (moved && fs.existsSync(tempDir)) {
-    fs.renameSync(tempDir, apiAdminDir);
+  if (moved && fs.existsSync(tempApiDir)) {
+    fs.renameSync(tempApiDir, apiDir);
   }
 }
 

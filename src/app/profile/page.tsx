@@ -16,8 +16,15 @@ import {
   UploadCloudIcon,
 } from "lucide-react";
 import { OnboardingModal, StudentProfile } from "@/components/OnboardingModal";
+import { useIsNativeApp } from "@/lib/useIsNativeApp";
+import { WebProfile } from "@/components/web/WebProfile";
 
 export default function Profile() {
+  const nativeMode = useIsNativeApp();
+  return nativeMode ? <ApkProfile /> : <WebProfile />;
+}
+
+function ApkProfile() {
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [studentProfile, setStudentProfile] = useState<StudentProfile | null>(null);
