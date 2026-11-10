@@ -1,29 +1,20 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { DownloadIcon, SmartphoneIcon, CopyIcon, CheckIcon } from 'lucide-react';
 
-const APK_PATH = '/SemKit.apk';
+const APK_DOWNLOAD_URL = 'https://semkit.vercel.app/SemKit.apk';
 
 /**
  * Direct Android APK download card rendered on the website.
- * Serves `releases/SemKit.apk` from Cloudflare R2 via the same-origin `/SemKit.apk` rewrite.
+ * Serves `releases/SemKit.apk` from Cloudflare R2 via `https://semkit.vercel.app/SemKit.apk`.
  */
 export function WebApkDownloadCard() {
-  const [origin, setOrigin] = useState<string>('https://ignite-xt-topaz.vercel.app');
   const [copied, setCopied] = useState<boolean>(false);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined' && window.location?.origin) {
-      setOrigin(window.location.origin);
-    }
-  }, []);
-
-  const fullUrl = `${origin}${APK_PATH}`;
 
   const handleCopyLink = async () => {
     try {
-      await navigator.clipboard.writeText(fullUrl);
+      await navigator.clipboard.writeText(APK_DOWNLOAD_URL);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
@@ -54,11 +45,11 @@ export function WebApkDownloadCard() {
             Download APK (Android):
           </span>
           <a
-            href={APK_PATH}
+            href={APK_DOWNLOAD_URL}
             download="SemKit.apk"
             className="font-mono font-bold text-[var(--ink)] underline decoration-[var(--ink)] underline-offset-2 break-all hover:bg-[#D7E600]/50 px-1 rounded transition-colors"
           >
-            {fullUrl}
+            {APK_DOWNLOAD_URL}
           </a>
           <button
             type="button"
@@ -82,7 +73,7 @@ export function WebApkDownloadCard() {
 
       <div className="shrink-0">
         <a
-          href={APK_PATH}
+          href={APK_DOWNLOAD_URL}
           download="SemKit.apk"
           className="w-full md:w-auto md:min-w-[260px] bg-[#D7E600] text-[var(--ink)] font-black text-[15px] px-6 py-3.5 rounded-xl flex items-center justify-center gap-2 border-2 border-[var(--ink)] shadow-[3px_3px_0_var(--ink)] hover:translate-y-[1px] hover:shadow-[2px_2px_0_var(--ink)] transition-all"
         >
